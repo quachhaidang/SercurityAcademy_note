@@ -1,0 +1,14 @@
+{
+  "name": "nodecoreblockchain-root",
+  "version": "1.0.0",
+  "description": "Blockchain Student Record Management System",
+  "scripts": {
+    "start:backend": "cd backend && node server.js",
+    "start:frontend": "cd frontend && npm run dev",
+    "dev": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

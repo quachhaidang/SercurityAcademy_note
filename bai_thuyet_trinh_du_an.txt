@@ -1,0 +1,46 @@
+CHƯƠNG TRÌNH THUYẾT TRÌNH DỰ ÁN: SECURITY ACADEMY BLOCKCHAIN LEDGER
+================================================================
+
+1. GIỚI THIỆU (SLIDE 1)
+- Tên dự án: Security Academy Blockchain Ledger.
+- Slogan: "Trust by Mathematics, Verified by Blockchain".
+- Mục tiêu: Số hóa và bảo mật văn bằng, chứng chỉ bằng công nghệ Chuỗi khối.
+
+2. BỐI CẢNH & THÁCH THỨC (SLIDE 2)
+- Thực trạng: Vấn nạn bằng giả tràn lan, gây mất uy tín cho các tổ chức đào tạo.
+- Rủi ro: Cơ sở dữ liệu tập trung dễ bị xâm nhập và chỉnh sửa dữ liệu gốc.
+- Hàng rào xác minh: Quy trình xác thực truyền thống mất nhiều thời gian, nhân lực và thủ tục giấy tờ.
+
+3. GIẢI PHÁP ĐỘT PHÁ (SLIDE 3)
+- Cơ chế: Sử dụng Blockchain làm sổ cái vĩnh viễn, không thể xóa bỏ hay sửa đổi.
+- Tiêu chuẩn: Áp dụng kiến trúc MIT Blockcerts - Tiêu chuẩn quốc tế cho chứng chỉ số.
+- Kỹ thuật: Kết hợp Hàm băm (SHA-256) và Chữ ký số (RSA) để niêm phong dữ liệu.
+4. KIẾN TRÚC HỆ THỐNG (SLIDE 4)
+- Frontend: ReactJS & Tailwind CSS (Giao diện hiện đại, Responsive).
+- Backend: NodeJS / ExpressJS (Node xử lý mạng Blockchain).
+- Lưu trữ: Sổ cái (Ledger) phi tập trung, đảm bảo tính toàn vẹn dữ liệu.
+
+5. CÁC PHÂN HỆ CHÍNH (SLIDE 5, 6, 7)
+- Dành cho Nhà trường (Admin):
+  + Quản lý sinh viên và điểm số tập trung.
+  + Nhập liệu thông minh từ file CSV (Bulk Import).
+  + Cơ chế thu hồi chứng chỉ (Revocation Registry) minh bạch.
+- Dành cho Sinh viên/Bên thứ 3:
+  + Tra cứu điểm trực tuyến (Public Lookup).
+  + Tải bảng điểm số hóa dạng file JSON mật mã.
+  + Trình xác minh độc lập (Universal Verifier): Kéo thả file để kiểm tra thật/giả tức thì.
+- Công khai:
+  + Blockchain Explorer: Theo dõi trực tiếp các khối và giao dịch trên chuỗi.
+
+6. GIÁ TRỊ THỰC TIỄN & TƯƠNG LAI (SLIDE 8)
+- Lợi ích: Chống giả mạo 100%, cắt giảm 90% thời gian/chi phí xác minh.
+- Phát triển: 
+  + Mở rộng mạng lưới liên kết nhiều trường (Consortium Blockchain).
+  + Tích hợp định danh phi tập trung (DID).
+
+7. LỜI KẾT
+- "Sức mạnh của dự án nằm ở việc chuyển đổi từ niềm tin vào con người sang niềm tin vào thuật toán."
+- Chân thành cảm ơn sự lắng nghe của quý thầy cô và ban giám khảo.
+
+================================================================
+(Để xem lời thoại chi tiết từng phần, vui lòng mở file thuyet_trinh_chi_tiet.md)

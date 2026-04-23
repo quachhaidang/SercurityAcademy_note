@@ -1,0 +1,718 @@
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --secondary: #0ea5e9;
+            --accent: #3b82f6;
+            --bg-deep: #1e40af;
+            --bg-light: #3b82f6;
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --card-border: rgba(255, 255, 255, 0.2);
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --shadow-soft: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, var(--bg-deep), var(--bg-light));
+            background-attachment: fixed;
+            color: var(--text-main);
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Bokeh Background Effect */
+        body::before, body::after {
+            content: '';
+            position: fixed;
+            width: 400px; height: 400px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 70%);
+            z-index: -1;
+            filter: blur(40px);
+            animation: float 20s infinite alternate;
+        }
+        body::before { top: -100px; left: -100px; }
+        body::after { bottom: -100px; right: -100px; animation-delay: -10s; }
+
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(100px, 100px) scale(1.2); }
+        }
+
+        .bokeh-circle {
+            position: fixed;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            filter: blur(20px);
+            z-index: -1;
+        }
+
+        h1, h2, h3, h4, h5, .navbar-brand { font-family: 'Outfit', sans-serif; font-weight: 700; color: #fff; }
+        .text-blue-main { color: var(--primary); }
+
+        .hidden { display: none !important; }
+
+        /* Premium White Cards */
+        .glass-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            box-shadow: var(--shadow-soft);
+            transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            color: var(--text-main);
+        }
+        .glass-card:hover { transform: translateY(-5px); box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.15); }
+
+        /* Navbar Customization */
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 1.2rem 0;
+            position: fixed; top: 0; width: 100%; z-index: 1000;
+        }
+        .nav-btn {
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff;
+            padding: 8px 18px; border-radius: 12px; font-weight: 600;
+            transition: 0.3s; margin: 0 5px;
+        }
+        .nav-btn:hover, .nav-btn.active { background: #fff; color: var(--primary); }
+
+        /* Form Inputs matching the image */
+        .input-group-modern {
+            position: relative; margin-bottom: 20px;
+        }
+        .input-group-modern i {
+            position: absolute; left: 15px; top: 50%; transform: translateY(-50%);
+            color: var(--primary); font-size: 1.2rem;
+        }
+        .form-control-modern {
+            width: 100%; padding: 15px 15px 15px 50px;
+            border-radius: 15px; border: 1.5px solid #e2e8f0;
+            background: #f8fafc; transition: 0.3s;
+            font-weight: 500;
+        }
+        .form-control-modern:focus {
+            outline: none; border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+            background: #fff;
+        }
+
+        /* Buttons consistent with the design */
+        .btn-uni {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: white; border: none; padding: 14px 28px;
+            border-radius: 12px; font-weight: 700; width: 100%;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+            transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-uni:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(37, 99, 235, 0.5); filter: brightness(1.1); }
+
+        /* Tables for Dashboard */
+        .table { color: var(--text-main); margin-top: 10px; }
+        .table thead th { border: none; color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; }
+        .table tbody tr { background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.02); transition: 0.2s; }
+        .table tbody tr:hover { background: #f8fafc; }
+        .table td { padding: 18px; vertical-align: middle; border-bottom: 1px solid #f1f5f9; }
+
+        /* Status Badges */
+        .badge-verified {
+            background: #dcfce7; color: #166534; padding: 6px 12px; border-radius: 8px; font-weight: 600;
+        }
+        .badge-warning {
+            background: #fee2e2; color: #991b1b; padding: 6px 12px; border-radius: 8px; font-weight: 600;
+        }
+
+        /* MessageBox Fix */
+        #message-box-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(8px);
+            z-index: 10001; display: flex; align-items: center; justify-content: center;
+            opacity: 0; visibility: hidden; transition: 0.3s;
+        }
+        #message-box-overlay.active { opacity: 1; visibility: visible; }
+        .message-box-card { background: #fff; width: 90%; max-width: 450px; border-radius: 20px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
+        .msg-header { padding: 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; }
+        .msg-title { color: var(--text-main); font-weight: 700; margin: 0; }
+        .msg-body { padding: 25px; color: var(--text-muted); }
+        .msg-footer { padding: 15px 20px; background: #f8fafc; display: flex; justify-content: flex-end; gap: 10px; }
+    </style>
+</head>
+<body class="bg-light">
+
+<!-- Font Awesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<nav class="glass-nav">
+    <div class="container d-flex justify-content-between align-items-center">
+        <a class="navbar-brand d-flex align-items-center pb-0" href="#" onclick="showTab('lookup-tab')">
+            <div class="bg-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 40px; height: 40px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+                <i class="fas fa-link text-primary" style="font-size: 1.2rem;"></i>
+            </div>
+            <span style="font-size: 1.6rem; letter-spacing: -0.5px;">UniChain</span>
+        </a>
+        <div id="nav-menus" class="hidden">
+            <button class="nav-btn active" id="btn-students-tab" onclick="showTab('students-tab')">Sinh viên</button>
+            <button class="nav-btn" id="btn-grades-tab" onclick="showTab('grades-tab')">Điểm số</button>
+            <button class="nav-btn" id="btn-certs-tab" onclick="showTab('certs-tab')">Chứng chỉ</button>
+            <button class="btn btn-outline-light btn-sm ms-3 rounded-pill px-3" onclick="logout()">Thoát</button>
+        </div>
+        <div id="auth-nav">
+            <button class="nav-btn px-4" onclick="showTab('login-tab')">Đăng nhập</button>
+        </div>
+    </div>
+</nav>
+
+<div class="container" style="padding-top: 120px;">
+    <!-- Stats Overview (Hidden during login) -->
+    <div id="stats-overview" class="row g-4 mb-5 hidden">
+        <div class="col-md-4">
+            <div class="glass-card p-4 text-center border-0" style="border-left: 5px solid var(--primary) !important;">
+                <div class="text-muted small fw-bold text-uppercase mb-2">Tổng Sinh Viên</div>
+                <div class="h2 fw-bold text-primary mb-0" id="stat-total-students">0</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="glass-card p-4 text-center border-0" style="border-left: 5px solid var(--secondary) !important;">
+                <div class="text-muted small fw-bold text-uppercase mb-2">Hồ sơ Blockchain</div>
+                <div class="h2 fw-bold text-info mb-0" id="stat-total-hashes">0</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="glass-card p-4 text-center border-0" style="border-left: 5px solid #ef4444 !important;">
+                <div class="text-muted small fw-bold text-uppercase mb-2">Cảnh báo Giả mạo</div>
+                <div class="h2 fw-bold text-danger mb-0" id="stat-tampered-alerts">0</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lookup Tab (Public Landing) -->
+    <div id="lookup-tab" class="glass-card mx-auto p-5 text-center" style="max-width: 650px;">
+        <h2 class="text-blue-main mb-2">Tra cứu thông tin sinh viên</h2>
+        <p class="text-muted mb-4">Vui lòng nhập mã số sinh viên (MSSV) để tra cứu thông tin cá nhân.</p>
+        
+        <div class="mb-4">
+            <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-4" style="width: 100px; height: 100px; border: 4px solid #fff; box-shadow: var(--shadow-soft);">
+                <i class="fas fa-user-graduate text-primary" style="font-size: 3rem;"></i>
+            </div>
+        </div>
+
+        <div class="input-group-modern">
+            <i class="fas fa-id-card"></i>
+            <input type="text" id="lookup-mssv" class="form-control-modern" placeholder="Nhập MSSV của bạn">
+        </div>
+
+        <button class="btn-uni mb-5" onclick="lookupStudent()">Tra cứu</button>
+
+        <div class="d-flex align-items-start text-start p-3 bg-light rounded-4 mb-4">
+            <div class="me-3 p-2 bg-white rounded-3 shadow-sm">
+                <i class="fas fa-cubes text-primary fs-4"></i>
+            </div>
+            <div>
+                <h6 class="mb-1 text-dark">Xác minh thông tin bằng Blockchain</h6>
+                <p class="text-muted small mb-0">UniChain ứng dụng blockchain để xác minh tính toàn vẹn của hồ sơ sinh viên, đảm bảo an toàn tuyệt đối.</p>
+            </div>
+        </div>
+
+        <p class="mb-0 text-muted small">Không có tài khoản? <a href="#" class="text-primary fw-bold text-decoration-none">Đăng ký mới tại đây</a></p>
+    </div>
+
+    <!-- Lookup Result Detail (Hidden by default) -->
+    <div id="lookup-result" class="glass-card mx-auto p-4 mt-4 hidden" style="max-width: 650px;">
+        <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-3">
+            <h5 class="mb-0 text-dark">Kết quả tra cứu</h5>
+            <button class="btn-close" onclick="document.getElementById('lookup-result').classList.add('hidden')"></button>
+        </div>
+        <div id="lookup-detail-content"></div>
+    </div>
+
+    <!-- Login Tab -->
+    <div id="login-tab" class="glass-card mx-auto p-5 hidden" style="max-width: 450px;">
+        <div class="text-center mb-4">
+            <h3 class="text-blue-main">Hệ thống Quản lý</h3>
+            <p class="text-muted small">Cổng thông tin dành cho Quản trị viên</p>
+        </div>
+        <div class="mb-3">
+            <label class="form-label text-muted small fw-bold">Tên đăng nhập</label>
+            <div class="input-group-modern">
+                <i class="fas fa-user"></i>
+                <input type="text" id="username" class="form-control-modern" placeholder="admin">
+            </div>
+        </div>
+        <div class="mb-4">
+            <label class="form-label text-muted small fw-bold">Mật khẩu</label>
+            <div class="input-group-modern">
+                <i class="fas fa-lock"></i>
+                <input type="password" id="password" class="form-control-modern" placeholder="••••••••">
+            </div>
+        </div>
+        <button class="btn-uni w-100" onclick="login()">Đăng nhập</button>
+        <div id="login-error" class="text-danger mt-3 text-center small"></div>
+    </div>
+
+    <!-- Students Tab -->
+    <div id="students-tab" class="hidden">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="text-white mb-1">Quản lý Sinh viên</h2>
+                <p class="text-white-50 small mb-0">Tra cứu và cập nhật dữ liệu định danh sinh viên</p>
+            </div>
+            <div class="d-flex gap-2">
+                <input type="file" id="csv-file" accept=".csv" class="hidden" onchange="importCSV(event)">
+                <button class="nav-btn" onclick="document.getElementById('csv-file').click()"><i class="fas fa-file-import me-1"></i> Import CSV</button>
+                <button class="nav-btn bg-white text-primary" onclick="document.getElementById('add-student-form').classList.toggle('hidden')"><i class="fas fa-plus me-1"></i> Thêm Sinh viên</button>
+                <div class="dropdown">
+                    <button class="nav-btn dropdown-toggle" data-bs-toggle="dropdown">Thao tác</button>
+                    <ul class="dropdown-menu shadow-lg border-0 rounded-3">
+                        <li><a class="dropdown-item" href="#" onclick="deleteSelected()"><i class="fas fa-trash-alt me-2 text-warning"></i> Xóa đã chọn</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger" href="#" onclick="deleteAll()"><i class="fas fa-fire me-2"></i> Xóa toàn bộ</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div id="add-student-form" class="glass-card mb-4 p-4 hidden">
+            <h5 class="mb-3 text-dark">Thêm sinh viên mới</h5>
+            <div class="row g-3">
+                <div class="col-md-3"><input type="text" id="stu-id" class="form-control-modern border" placeholder="Mã SV (SV01)" style="padding-left: 15px;"></div>
+                <div class="col-md-3"><input type="text" id="stu-name" class="form-control-modern border" placeholder="Họ Tên" style="padding-left: 15px;"></div>
+                <div class="col-md-3"><input type="email" id="stu-email" class="form-control-modern border" placeholder="Email" style="padding-left: 15px;"></div>
+                <div class="col-md-2"><input type="text" id="stu-class" class="form-control-modern border" placeholder="Lớp" style="padding-left: 15px;"></div>
+                <div class="col-md-1"><button class="btn-uni h-100 p-0" onclick="addStudent()">Lưu</button></div>
+            </div>
+        </div>
+
+        <div class="glass-card overflow-hidden">
+            <table class="table mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th width="60" class="ps-4"><input type="checkbox" id="check-all" onclick="toggleCheckAll(this)" class="form-check-input"></th>
+                        <th>Mã Sinh Viên</th><th>Họ và Tên</th><th>Email liên hệ</th><th>Lớp học</th>
+                    </tr>
+                </thead>
+                <tbody id="students-list"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Grades Tab -->
+    <div id="grades-tab" class="hidden">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="text-white mb-1">Bảng điểm & Blockchain</h2>
+                <p class="text-white-50 small mb-0">Dữ liệu được băm (SHA-256) và đối soát trực tiếp với Blockchain</p>
+            </div>
+            <button class="nav-btn bg-white text-primary fw-bold" onclick="document.getElementById('add-grade-form').classList.toggle('hidden')"><i class="fas fa-plus me-1"></i> Nhập điểm mới</button>
+        </div>
+
+        <div id="add-grade-form" class="glass-card mb-4 p-4 hidden">
+            <div class="row g-3">
+                <div class="col-md-4"><input type="text" id="gr-stu-id" class="form-control-modern border" placeholder="Mã SV" style="padding-left: 15px;"></div>
+                <div class="col-md-4"><input type="text" id="gr-subject" class="form-control-modern border" placeholder="Môn học" style="padding-left: 15px;"></div>
+                <div class="col-md-2"><input type="number" step="0.1" id="gr-score" class="form-control-modern border" placeholder="Điểm" style="padding-left: 15px;"></div>
+                <div class="col-md-2"><button class="btn-uni h-100" onclick="addGrade()">Kí gửi Data</button></div>
+            </div>
+        </div>
+        
+        <div class="glass-card p-4 mb-3 d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-circle-nodes text-primary fa-spin me-3 fs-4"></i>
+                <span class="text-muted small">Mạng lưới Blockchain đang trực tuyến. Toàn bộ Node đã được đồng bộ.</span>
+            </div>
+            <button class="btn btn-outline-primary rounded-pill px-4 fw-bold" onclick="fetchGrades()"><i class="fas fa-sync-alt me-2"></i> RE-VERIFY UNIT</button>
+        </div>
+
+        <div class="glass-card overflow-hidden">
+            <table class="table mb-0">
+                <thead class="bg-light">
+                    <tr><th class="ps-4">Hồ sơ Sinh viên</th><th>Môn học</th><th>Điểm số (DB)</th><th>Trạng thái Toàn vẹn</th></tr>
+                </thead>
+                <tbody id="grades-list"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Certificates Tab -->
+    <div id="certs-tab" class="hidden">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="text-white mb-1">Văn bằng & Chứng chỉ</h2>
+                <p class="text-white-50 small mb-0">Phát hành và xác định chữ ký số cho chứng chỉ học thuật</p>
+            </div>
+            <button class="nav-btn bg-white text-primary fw-bold" onclick="document.getElementById('add-cert-form').classList.toggle('hidden')"><i class="fas fa-plus me-1"></i> Cấp chứng chỉ</button>
+        </div>
+
+        <div id="add-cert-form" class="glass-card mb-4 p-4 hidden">
+            <div class="row g-3">
+                <div class="col-md-3"><input type="text" id="cer-stu-id" class="form-control-modern border" placeholder="Mã SV" style="padding-left: 15px;"></div>
+                <div class="col-md-5"><input type="text" id="cer-name" class="form-control-modern border" placeholder="Tên chứng chỉ" style="padding-left: 15px;"></div>
+                <div class="col-md-2"><input type="date" id="cer-date" class="form-control-modern border" style="padding-left: 15px;"></div>
+                <div class="col-md-2"><button class="btn-uni h-100" onclick="addCert()">Phát hành</button></div>
+            </div>
+        </div>
+        
+        <div class="glass-card p-4 mb-3 d-flex justify-content-between align-items-center">
+            <span class="text-muted small"><i class="fas fa-shield-alt text-primary me-2"></i> Xác thực chứng chỉ thông qua định danh phi tập trung.</span>
+            <button class="btn btn-outline-primary rounded-pill px-4 fw-bold" onclick="fetchCerts()"><i class="fas fa-expand-arrows-alt me-2"></i> SCAN NETWORK</button>
+        </div>
+
+        <div class="glass-card overflow-hidden">
+            <table class="table mb-0">
+                <thead class="bg-light">
+                    <tr><th class="ps-4">Mã SV</th><th>Tên chứng chỉ</th><th>Ngày cấp</th><th>Integrity Check</th></tr>
+                </thead>
+                <tbody id="certs-list"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Custom MessageBox -->
+<div id="message-box-overlay">
+    <div class="message-box-card">
+        <div class="msg-header">
+            <h5 class="msg-title" id="msg-title">Thông báo</h5>
+            <button type="button" class="btn-close btn-close-white" style="font-size: 0.8rem;" onclick="closeMessageBox(false)"></button>
+        </div>
+        <div class="msg-body" id="msg-body"></div>
+        <div class="msg-footer" id="msg-footer">
+            <button class="msg-btn msg-btn-secondary" id="msg-cancel-btn" onclick="closeMessageBox(false)">Hủy</button>
+            <button class="msg-btn msg-btn-primary" id="msg-ok-btn" onclick="closeMessageBox(true)">OK</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API = "http://localhost:3000/api";
+    
+    function getToken() { return localStorage.getItem('bt_token'); }
+    
+    function getHeaders() {
+        return {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + getToken()
+        };
+    }
+
+    // --- HELPER: SHOW TAB ---
+    function showTab(id) {
+        const tabs = ['lookup-tab', 'login-tab', 'students-tab', 'grades-tab', 'certs-tab'];
+        tabs.forEach(tab => {
+            const el = document.getElementById(tab);
+            if (el) el.classList.add('hidden');
+        });
+        
+        const target = document.getElementById(id);
+        if (target) target.classList.remove('hidden');
+        
+        // Update Nav Active State
+        document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+        const activeBtn = document.getElementById('btn-' + id);
+        if (activeBtn) activeBtn.classList.add('active');
+
+        // Handle specific tab logic
+        if (id === 'students-tab') fetchStudents();
+        if (id === 'grades-tab') fetchGrades();
+        if (id === 'certs-tab') fetchCerts();
+        
+        // Special UI Toggles
+        const stats = document.getElementById('stats-overview');
+        const authNav = document.getElementById('auth-nav');
+        const navMenus = document.getElementById('nav-menus');
+
+        const loggedIn = !!getToken();
+        if (['lookup-tab', 'login-tab'].includes(id)) {
+            stats.classList.add('hidden');
+            if (loggedIn) {
+                authNav.classList.add('hidden');
+                navMenus.classList.remove('hidden');
+            } else {
+                authNav.classList.remove('hidden');
+                navMenus.classList.add('hidden');
+            }
+        } else {
+            stats.classList.remove('hidden');
+            authNav.classList.add('hidden');
+            navMenus.classList.remove('hidden');
+        }
+
+        // Hide lookup result when switching away from lookup tab
+        if (id !== 'lookup-tab') {
+            document.getElementById('lookup-result').classList.add('hidden');
+        }
+    }
+
+    // --- PUBLIC LOOKUP LOGIC ---
+    async function lookupStudent() {
+        const mssv = document.getElementById('lookup-mssv').value.trim();
+        if (!mssv) return showMessage("Thông báo", "Vui lòng nhập MSSV để tra cứu.");
+
+        const resultBox = document.getElementById('lookup-result');
+        const content = document.getElementById('lookup-detail-content');
+        
+        try {
+            const res = await fetch(`${API}/public/lookup/${mssv}`);
+            const data = await res.json();
+
+            if (!res.ok) {
+                return showMessage("Lỗi", data.error || "Không tìm thấy dữ liệu.");
+            }
+
+            resultBox.classList.remove('hidden');
+            const statusIcon = data.blockchain_verified ? 
+                '<i class="fas fa-check-circle text-success me-2"></i> <span class="badge-verified">BLOCKCHAIN VERIFIED</span>' : 
+                '<i class="fas fa-exclamation-triangle text-danger me-2"></i> <span class="badge-warning">FAILED VERIFICATION</span>';
+
+            content.innerHTML = `
+                <div class="row g-3">
+                    <div class="col-6">
+                        <div class="small text-muted">Họ và Tên</div>
+                        <div class="fw-bold fs-5">${data.name}</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="small text-muted">Lớp học</div>
+                        <div class="fw-bold fs-5">${data.class_name}</div>
+                    </div>
+                    <div class="col-12 mt-4">
+                        <div class="p-3 border rounded-3 bg-light">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="small fw-bold">Trạng thái Blockchain:</span>
+                                <div>${statusIcon}</div>
+                            </div>
+                            <div class="small text-muted">Hệ thống đã đối soát ${data.record_count} bản ghi liên quan đến sinh viên này trên mạng lưới Node UniChain.</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } catch (e) {
+            showMessage("Lỗi kết nối", "Không thể kết nối đến máy chủ.");
+        }
+    }
+
+    // --- AUTH LOGIC ---
+    async function login() {
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        
+        try {
+            const res = await fetch(`${API}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                localStorage.setItem('bt_token', data.token);
+                document.getElementById('nav-menus').classList.remove('hidden');
+                document.getElementById('auth-nav').classList.add('hidden');
+                document.getElementById('login-error').innerText = '';
+                showTab('lookup-tab');
+                updateDashboardStats();
+            } else {
+                document.getElementById('login-error').innerText = data.error;
+            }
+        } catch(e) {
+            document.getElementById('login-error').innerText = "Lỗi kết nối Backend API.";
+        }
+    }
+
+    function logout() {
+        localStorage.removeItem('bt_token');
+        document.getElementById('nav-menus').classList.add('hidden');
+        document.getElementById('auth-nav').classList.remove('hidden');
+        showTab('lookup-tab');
+    }
+
+    // --- MESSAGE BOX LOGIC ---
+    let messageBoxResolve = null;
+    function showMessage(title, body, type = 'info') {
+        return new Promise(resolve => {
+            const overlay = document.getElementById('message-box-overlay');
+            document.getElementById('msg-title').innerText = title;
+            document.getElementById('msg-body').innerText = body;
+            document.getElementById('msg-cancel-btn').style.display = 'none';
+            const okBtn = document.getElementById('msg-ok-btn');
+            okBtn.className = 'msg-btn ' + (type === 'danger' ? 'msg-btn-danger' : 'msg-btn-primary');
+            okBtn.innerText = 'Đóng';
+            overlay.classList.add('active');
+            messageBoxResolve = resolve;
+        });
+    }
+
+    function showConfirm(title, body, danger = false) {
+        return new Promise(resolve => {
+            const overlay = document.getElementById('message-box-overlay');
+            document.getElementById('msg-title').innerText = title;
+            document.getElementById('msg-body').innerText = body;
+            document.getElementById('msg-cancel-btn').style.display = 'block';
+            const okBtn = document.getElementById('msg-ok-btn');
+            okBtn.className = 'msg-btn ' + (danger ? 'btn-danger bg-danger text-white' : 'msg-btn-primary');
+            okBtn.innerText = 'Đồng ý';
+            overlay.classList.add('active');
+            messageBoxResolve = resolve;
+        });
+    }
+
+    function closeMessageBox(result) {
+        document.getElementById('message-box-overlay').classList.remove('active');
+        if (messageBoxResolve) { messageBoxResolve(result); messageBoxResolve = null; }
+    }
+
+    // --- DATA FETCHING ---
+    async function updateDashboardStats() {
+        if (!getToken()) return;
+        const [sRes, gRes, cRes] = await Promise.all([
+            fetch(`${API}/students`, { headers: getHeaders() }),
+            fetch(`${API}/grades`, { headers: getHeaders() }),
+            fetch(`${API}/certificates`, { headers: getHeaders() })
+        ]);
+        const students = await sRes.json();
+        const grades = await gRes.json();
+        const certs = await cRes.json();
+
+        document.getElementById('stat-total-students').innerText = students.length;
+        document.getElementById('stat-total-hashes').innerText = grades.length + certs.length;
+        const tamperedCount = [...grades, ...certs].filter(x => x.blockchainStatus !== 'Valid').length;
+        document.getElementById('stat-tampered-alerts').innerText = tamperedCount;
+    }
+
+    async function fetchStudents() {
+        const res = await fetch(`${API}/students`, { headers: getHeaders() });
+        const data = await res.json();
+        let html = '';
+        data.forEach(s => {
+            html += `<tr>
+                <td class="ps-4"><input type="checkbox" class="student-item-check form-check-input" value="${s.student_id}"></td>
+                <td><span class="badge bg-light text-primary border">${s.student_id}</span></td>
+                <td class="fw-bold">${s.name}</td><td>${s.email}</td><td>${s.class_name}</td></tr>`;
+        });
+        document.getElementById('students-list').innerHTML = html || '<tr><td colspan="5" class="text-center p-5 text-muted">Chưa có dữ liệu sinh viên</td></tr>';
+        document.getElementById('check-all').checked = false;
+        updateDashboardStats();
+    }
+
+    async function addStudent() {
+        await fetch(`${API}/students`, {
+            method: 'POST', headers: getHeaders(),
+            body: JSON.stringify({
+                student_id: document.getElementById('stu-id').value,
+                name: document.getElementById('stu-name').value,
+                email: document.getElementById('stu-email').value,
+                class_name: document.getElementById('stu-class').value
+            })
+        });
+        document.getElementById('add-student-form').classList.add('hidden');
+        fetchStudents();
+    }
+
+    async function importCSV(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const text = e.target.result;
+            const rows = text.split('\n').filter(row => row.trim() !== '');
+            const startIdx = rows[0].toLowerCase().includes('id') ? 1 : 0;
+            const students = [];
+            for (let i = startIdx; i < rows.length; i++) {
+                const cols = rows[i].split(',').map(c => c.trim());
+                if (cols.length >= 4) students.push({ student_id: cols[0], name: cols[1], email: cols[2], class_name: cols[3] });
+            }
+            const res = await fetch(`${API}/students/bulk`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ students }) });
+            const result = await res.json();
+            showMessage("Kết quả Import", result.message);
+            fetchStudents();
+        };
+        reader.readAsText(file);
+        event.target.value = '';
+    }
+
+    function toggleCheckAll(master) {
+        document.querySelectorAll('.student-item-check').forEach(c => c.checked = master.checked);
+    }
+
+    async function deleteSelected() {
+        const selectedIds = Array.from(document.querySelectorAll('.student-item-check:checked')).map(c => c.value);
+        if (selectedIds.length === 0) return showMessage("Thông báo", "Chưa chọn sinh viên nào.");
+        if (!await showConfirm("Xác nhận xóa", `Xóa ${selectedIds.length} sinh viên này?`, true)) return;
+        const res = await fetch(`${API}/students/delete-bulk`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ studentIds: selectedIds }) });
+        fetchStudents();
+    }
+
+    async function deleteAll() {
+        if (!await showConfirm("CẢNH BÁO", "Xóa TOÀN BỘ sinh viên?", true)) return;
+        await fetch(`${API}/students/all`, { method: 'DELETE', headers: getHeaders() });
+        fetchStudents();
+    }
+
+    async function fetchGrades() {
+        document.getElementById('grades-list').innerHTML = '<tr><td colspan="4" class="text-center p-4">Đang truy vấn Blockchain...</td></tr>';
+        const res = await fetch(`${API}/grades`, { headers: getHeaders() });
+        const data = await res.json();
+        let html = '';
+        data.forEach(g => {
+            const isV = g.blockchainStatus === 'Valid';
+            html += `<tr>
+                <td class="ps-4"><strong>${g.student_id}</strong></td>
+                <td>${g.subject}</td>
+                <td><span class="badge bg-light text-dark border fs-6">${g.score}</span></td>
+                <td>${isV ? '<span class="badge-verified"><i class="fas fa-check me-1"></i> HỢP LỆ</span>' : '<span class="badge-warning"><i class="fas fa-times me-1"></i> GIẢ MẠO</span>'}</td>
+            </tr>`;
+        });
+        document.getElementById('grades-list').innerHTML = html || '<tr><td colspan="4" class="text-center p-4">Trống</td></tr>';
+        updateDashboardStats();
+    }
+
+    async function addGrade() {
+        await fetch(`${API}/grades`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ student_id: document.getElementById('gr-stu-id').value, subject: document.getElementById('gr-subject').value, score: document.getElementById('gr-score').value }) });
+        document.getElementById('add-grade-form').classList.add('hidden');
+        fetchGrades();
+    }
+
+    async function fetchCerts() {
+        document.getElementById('certs-list').innerHTML = '<tr><td colspan="4" class="text-center p-4">Quét mạng lưới...</td></tr>';
+        const res = await fetch(`${API}/certificates`, { headers: getHeaders() });
+        const data = await res.json();
+        let html = '';
+        data.forEach(c => {
+            const isV = c.blockchainStatus === 'Valid';
+            html += `<tr>
+                <td class="ps-4"><strong>${c.student_id}</strong></td>
+                <td><i class="fas fa-certificate text-primary me-2"></i> ${c.cert_name}</td>
+                <td><small class="text-muted">${c.issue_date}</small></td>
+                <td>${isV ? '<span class="badge-verified">✔️ HỢP LỆ</span>' : '<span class="badge-warning">❌ GIẢ MẠO</span>'}</td>
+            </tr>`;
+        });
+        document.getElementById('certs-list').innerHTML = html || '<tr><td colspan="4" class="text-center p-4">Trống</td></tr>';
+        updateDashboardStats();
+    }
+
+    async function addCert() {
+        await fetch(`${API}/certificates`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ student_id: document.getElementById('cer-stu-id').value, cert_name: document.getElementById('cer-name').value, issue_date: document.getElementById('cer-date').value }) });
+        document.getElementById('add-cert-form').classList.add('hidden');
+        fetchCerts();
+    }
+
+    // --- INITIALIZATION ---
+    if(getToken()) {
+        showTab('students-tab');
+    } else {
+        showTab('lookup-tab');
+    }
+</script>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>
