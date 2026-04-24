@@ -2,9 +2,17 @@ const sqlite3 = require('sqlite3');
 const { open } = require('sqlite');
 const path = require('path');
 const crypto = require('crypto');
+const fs = require('fs');
 
 async function initDb() {
     const dbPath = process.env.DATABASE_PATH || path.join(__dirname, 'database.sqlite');
+    
+    // Đảm bảo thư mục chứa file database tồn tại
+    const dbDir = path.dirname(dbPath);
+    if (!fs.existsSync(dbDir)) {
+        fs.mkdirSync(dbDir, { recursive: true });
+    }
+
     const db = await open({
         filename: dbPath,
         driver: sqlite3.Database
