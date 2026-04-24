@@ -182,7 +182,13 @@ app.post('/api/admin/revoke', authenticate, requireAdmin, async (req, res) => {
 
 app.get('/api/public/lookup/:student_id', async (req, res) => {
     const student_id = req.params.student_id.toUpperCase().replace(/-/g, '');
-    const student = await db.get('SELECT name, class_name FROM students WHERE student_id = ?', [student_id]);
+    const student = await db.get(`
+        SELECT s.*, m.major_name, b.batch_name, b.start_year, b.end_year
+        FROM students s 
+        LEFT JOIN majors m ON s.major_id = m.id
+        LEFT JOIN batches b ON s.batch_id = b.id
+        WHERE s.student_id = ?
+    `, [student_id]);
     
     if (!student) return res.status(404).json({ error: "Không tìm thấy sinh viên" });
     
@@ -217,6 +223,10 @@ app.get('/api/public/lookup/:student_id', async (req, res) => {
         student_id: student_id,
         name: student.name,
         class_name: student.class_name,
+        major_name: student.major_name,
+        batch_name: student.batch_name,
+        start_year: student.start_year,
+        end_year: student.end_year,
         record_count: verifiedGrades.length + verifiedCerts.length,
         blockchain_verified: isValid,
         grades: verifiedGrades,
@@ -255,15 +265,20 @@ app.post('/api/users/teacher', authenticate, requireAdmin, async (req, res) => {
 // API: STUDENTS (Admin)
 // =======================
 app.get('/api/students', authenticate, async (req, res) => {
-    const students = await db.all('SELECT * FROM students');
+    const students = await db.all(`
+        SELECT s.*, m.major_name, b.batch_name, b.start_year, b.end_year 
+        FROM students s
+        LEFT JOIN majors m ON s.major_id = m.id
+        LEFT JOIN batches b ON s.batch_id = b.id
+    `);
     res.json(students);
 });
 
 app.post('/api/students', authenticate, requireAdmin, async (req, res) => {
-    const { student_id, name, email, class_name } = req.body;
+    const { student_id, name, email, class_name, major_id, batch_id } = req.body;
     try {
-        await db.run('INSERT INTO students (student_id, name, email, class_name) VALUES (?, ?, ?, ?)', 
-            [student_id, name, email, class_name]);
+        await db.run('INSERT INTO students (student_id, name, email, class_name, major_id, batch_id) VALUES (?, ?, ?, ?, ?, ?)', 
+            [student_id, name, email, class_name, major_id, batch_id]);
         res.json({ message: "Student added" });
     } catch (err) {
         res.status(400).json({ error: "Student ID must be unique" });
@@ -496,6 +511,42 @@ app.get('/api/subjects', authenticate, async (req, res) => {
 app.get('/api/academic-years', authenticate, async (req, res) => {
     const years = await db.all('SELECT * FROM academic_years ORDER BY year_name DESC');
     res.json(years);
+});
+
+app.get('/api/majors', authenticate, async (req, res) => {
+    const majors = await db.all('SELECT * FROM majors ORDER BY major_name ASC');
+    res.json(majors);
+});
+
+app.post('/api/majors', authenticate, requireAdmin, async (req, res) => {
+    const { major_name } = req.body;
+    try {
+        await db.run('INSERT INTO majors (major_name) VALUES (?)', [major_name]);
+        res.json({ message: "Đã thêm ngành học" });
+    } catch (e) { res.status(400).json({ error: "Ngành học đã tồn tại" }); }
+});
+
+app.delete('/api/majors/:id', authenticate, requireAdmin, async (req, res) => {
+    await db.run('DELETE FROM majors WHERE id = ?', [req.params.id]);
+    res.json({ message: "Đã xóa ngành" });
+});
+
+app.get('/api/batches', authenticate, async (req, res) => {
+    const batches = await db.all('SELECT * FROM batches ORDER BY start_year DESC');
+    res.json(batches);
+});
+
+app.post('/api/batches', authenticate, requireAdmin, async (req, res) => {
+    const { batch_name, start_year, end_year } = req.body;
+    try {
+        await db.run('INSERT INTO batches (batch_name, start_year, end_year) VALUES (?, ?, ?)', [batch_name, start_year, end_year]);
+        res.json({ message: "Đã thêm khóa học" });
+    } catch (e) { res.status(400).json({ error: "Khóa học đã tồn tại" }); }
+});
+
+app.delete('/api/batches/:id', authenticate, requireAdmin, async (req, res) => {
+    await db.run('DELETE FROM batches WHERE id = ?', [req.params.id]);
+    res.json({ message: "Đã xóa khóa" });
 });
 
 app.post('/api/academic-years', authenticate, requireAdmin, async (req, res) => {

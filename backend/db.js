@@ -31,7 +31,9 @@ async function initDb() {
             student_id TEXT UNIQUE,
             name TEXT,
             email TEXT,
-            class_name TEXT
+            class_name TEXT,
+            major_id INTEGER,
+            batch_id INTEGER
         );
 
         CREATE TABLE IF NOT EXISTS grades (
@@ -88,6 +90,18 @@ async function initDb() {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             year_name TEXT UNIQUE
         );
+
+        CREATE TABLE IF NOT EXISTS majors (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            major_name TEXT UNIQUE
+        );
+
+        CREATE TABLE IF NOT EXISTS batches (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            batch_name TEXT UNIQUE,
+            start_year INTEGER,
+            end_year INTEGER
+        );
     `);
 
     // Removed initial demo seeding as requested
@@ -97,6 +111,8 @@ async function initDb() {
     try { await db.exec("ALTER TABLE grades ADD COLUMN semester TEXT"); } catch (e) {}
     try { await db.exec("ALTER TABLE grades ADD COLUMN academic_year TEXT"); } catch (e) {}
     try { await db.exec("ALTER TABLE certificates ADD COLUMN signature TEXT"); } catch (e) {}
+    try { await db.exec("ALTER TABLE students ADD COLUMN major_id INTEGER"); } catch (e) {}
+    try { await db.exec("ALTER TABLE students ADD COLUMN batch_id INTEGER"); } catch (e) {}
 
 
     // Default Admin

@@ -19,6 +19,8 @@ export default function Dashboard({ userToken, userRole }) {
   const [catClasses, setCatClasses] = useState([]);
   const [catSubjects, setCatSubjects] = useState([]);
   const [catAcademicYears, setCatAcademicYears] = useState([]);
+  const [catMajors, setCatMajors] = useState([]);
+  const [catBatches, setCatBatches] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const headers = {
@@ -36,6 +38,8 @@ export default function Dashboard({ userToken, userRole }) {
         axios.get(`${API}/api/classes`, { headers }),
         axios.get(`${API}/api/subjects`, { headers }),
         axios.get(`${API}/api/academic-years`, { headers }),
+        axios.get(`${API}/api/majors`, { headers }),
+        axios.get(`${API}/api/batches`, { headers }),
       ]);
       if (resp[0].status === 'fulfilled') setStudents(resp[0].value.data);
       if (resp[1].status === 'fulfilled') setGrades(resp[1].value.data);
@@ -43,6 +47,8 @@ export default function Dashboard({ userToken, userRole }) {
       if (resp[3].status === 'fulfilled') setCatClasses(resp[3].value.data.map(c => c.class_name));
       if (resp[4].status === 'fulfilled') setCatSubjects(resp[4].value.data.map(s => s.subject_name));
       if (resp[5].status === 'fulfilled') setCatAcademicYears(resp[5].value.data);
+      if (resp[6].status === 'fulfilled') setCatMajors(resp[6].value.data);
+      if (resp[7].status === 'fulfilled') setCatBatches(resp[7].value.data);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
@@ -92,10 +98,10 @@ export default function Dashboard({ userToken, userRole }) {
           <SkeletonTable key="skeleton" />
         ) : (
           <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
-            {tab === 'students' && <StudentTab students={students} catClasses={catClasses} headers={headers} refresh={fetchAll} />}
+            {tab === 'students' && <StudentTab students={students} catClasses={catClasses} catMajors={catMajors} catBatches={catBatches} headers={headers} refresh={fetchAll} />}
             {tab === 'grades' && <GradeTab grades={grades} students={students} catClasses={catClasses} catSubjects={catSubjects} catAcademicYears={catAcademicYears} headers={headers} refresh={fetchAll} />}
             {tab === 'certs' && <CertTab certs={certs} headers={headers} refresh={fetchAll} />}
-            {tab === 'catalog' && <CatalogTab headers={headers} refresh={fetchAll} academicYears={catAcademicYears} />}
+            {tab === 'catalog' && <CatalogTab headers={headers} refresh={fetchAll} academicYears={catAcademicYears} majors={catMajors} batches={catBatches} />}
           </motion.div>
         )}
       </AnimatePresence>
@@ -164,10 +170,13 @@ function EmptyState({ icon, title, desc }) {
 /* ─────────────────────────────────────── ADD FORM ── */
 function AddForm({ fields, onSubmit, onCancel, submitLabel = 'Lưu' }) {
   const [values, setValues] = useState(() => {
-    return Object.fromEntries(fields.map(f => [
-      f.key,
-      f.type === 'select' && f.options && f.options.length > 0 ? f.options[0] : ''
-    ]));
+    return Object.fromEntries(fields.map(f => {
+      let initialVal = '';
+      if (f.type === 'select' && f.options && f.options.length > 0) {
+        initialVal = typeof f.options[0] === 'object' ? f.options[0].value : f.options[0];
+      }
+      return [f.key, initialVal];
+    }));
   });
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setValues(p => ({ ...p, [k]: v }));
@@ -183,7 +192,12 @@ function AddForm({ fields, onSubmit, onCancel, submitLabel = 'Lưu' }) {
             <label style={{ display: 'block', fontSize: '0.6875rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem' }}>{f.label}</label>
             {f.type === 'select' ? (
               <select className="input" value={values[f.key]} onChange={e => set(f.key, e.target.value)}>
-                {f.options && f.options.map(o => <option key={o} value={o}>{o}</option>)}
+                {f.options && f.options.map(o => {
+                  const isObj = typeof o === 'object';
+                  const label = isObj ? o.label : o;
+                  const val = isObj ? o.value : o;
+                  return <option key={val} value={val}>{label}</option>
+                })}
               </select>
             ) : (
               <input type={f.type || 'text'} step={f.step} className="input" placeholder={f.placeholder} value={values[f.key]} onChange={e => set(f.key, e.target.value)} />
@@ -229,7 +243,7 @@ function ConfirmModal({ onConfirm, onCancel, loading, title, desc, confirmLabel 
 }
 
 /* ─────────────────────────────────────── STUDENT TAB ── */
-function StudentTab({ students, catClasses = [], headers, refresh }) {
+function StudentTab({ students, catClasses = [], catMajors = [], catBatches = [], headers, refresh }) {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editValues, setEditValues] = useState({});
@@ -430,11 +444,18 @@ function StudentTab({ students, catClasses = [], headers, refresh }) {
         {/* Add Form */}
         <AnimatePresence>
           {open && <AddForm fields={[
-            { key: 'id', label: 'MSSV', placeholder: 'SV-001' },
+            { key: 'student_id', label: 'MSSV', placeholder: 'SV-001' },
             { key: 'name', label: 'Họ tên', placeholder: 'Nguyễn Văn A' },
             { key: 'email', label: 'Email', placeholder: 'a@university.vn' },
-            { key: 'cls', label: 'Lớp', type: 'select', options: catClasses.length > 0 ? catClasses : ['Không có lớp nào'] },
-          ]} onSubmit={handleAdd} onCancel={() => setOpen(false)} />}
+            { key: 'class_name', label: 'Lớp', type: 'select', options: catClasses.length > 0 ? catClasses : ['Không có lớp nào'] },
+            { key: 'major_id', label: 'Ngành học', type: 'select', options: catMajors.map(m => ({ label: m.major_name, value: m.id })) },
+            { key: 'batch_id', label: 'Khóa học', type: 'select', options: catBatches.map(b => ({ label: `${b.batch_name} (${b.start_year}-${b.end_year})`, value: b.id })) },
+          ]} onSubmit={async (v) => {
+             // Extract values since AddForm might return labels for select if not careful
+             // But my AddForm uses values[f.key]
+             await axios.post(`${API}/api/students`, v, { headers });
+             setOpen(false); refresh();
+          }} onCancel={() => setOpen(false)} />}
         </AnimatePresence>
 
         {/* Table */}
@@ -867,7 +888,7 @@ function CertRow({ label, value }) {
 }
 
 /* ─────────────────────────────────────── CATALOG TAB ── */
-function CatalogTab({ headers, refresh, academicYears = [] }) {
+function CatalogTab({ headers, refresh, academicYears = [], majors = [], batches = [] }) {
   const [classes, setClasses] = useState([]);
   const [subjects, setSubjects] = useState([]);
 
@@ -881,7 +902,52 @@ function CatalogTab({ headers, refresh, academicYears = [] }) {
       <CatalogPanel title="Quản lý Lớp" endpoint="/api/classes" data={classes} field="class_name" headers={headers} refresh={refresh} />
       <CatalogPanel title="Quản lý Môn" endpoint="/api/subjects" data={subjects} field="subject_name" headers={headers} refresh={refresh} />
       <CatalogPanel title="Quản lý Năm học" endpoint="/api/academic-years" data={academicYears} field="year_name" headers={headers} refresh={refresh} />
+      <CatalogPanel title="Quản lý Ngành học" endpoint="/api/majors" data={majors} field="major_name" headers={headers} refresh={refresh} />
+      
+      {/* Khóa học Panel với các trường mở rộng */}
+      <div className="card" style={{ padding: '1.5rem' }}>
+        <h3 style={{ fontWeight: 700, marginBottom: '1rem' }}>Quản lý Khóa học</h3>
+        <AddBatchForm headers={headers} refresh={refresh} />
+        <div style={{ marginTop: '1rem' }}>
+          {batches.map(b => (
+            <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem', borderBottom: '1px solid #f1f5f9' }}>
+              <div>
+                <span style={{ fontWeight: 600 }}>{b.batch_name}</span>
+                <span style={{ fontSize: '0.75rem', color: '#64748b', marginLeft: '0.5rem' }}>({b.start_year} - {b.end_year})</span>
+              </div>
+              <button onClick={async () => {
+                if (confirm('Xóa khóa này?')) {
+                   await axios.delete(`${API}/api/batches/${b.id}`, { headers });
+                   refresh();
+                }
+              }} className="btn-sm" style={{ color: '#ef4444', background: '#fef2f2' }}><Trash2 size={13} /></button>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <AccountPanel headers={headers} />
+    </div>
+  );
+}
+
+function AddBatchForm({ headers, refresh }) {
+  const [val, setVal] = useState({ name: '', start: '', end: '' });
+  const handle = async () => {
+    if (!val.name || !val.start || !val.end) return;
+    try {
+      await axios.post(`${API}/api/batches`, { batch_name: val.name, start_year: val.start, end_year: val.end }, { headers });
+      setVal({ name: '', start: '', end: '' }); refresh();
+    } catch (e) { alert(e.response?.data?.error || 'Lỗi'); }
+  };
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      <input className="input" value={val.name} onChange={e => setVal({...val, name: e.target.value})} placeholder="Tên khóa (K21...)" />
+      <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <input className="input" type="number" value={val.start} onChange={e => setVal({...val, start: e.target.value})} placeholder="Bắt đầu" />
+        <input className="input" type="number" value={val.end} onChange={e => setVal({...val, end: e.target.value})} placeholder="Kết thúc" />
+      </div>
+      <button onClick={handle} className="btn-md btn-primary"><Plus size={14} /> Thêm khóa</button>
     </div>
   );
 }

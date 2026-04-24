@@ -158,7 +158,9 @@ export default function Lookup() {
       "student": {
         "student_id": studentId,
         "name": result.name,
-        "class_name": result.class_name
+        "class_name": result.class_name,
+        "major": result.major_name,
+        "batch": result.batch_name ? `${result.batch_name} (${result.start_year}-${result.end_year})` : null
       },
       "grades": result.grades.map(g => ({
         "subject": g.subject,
@@ -311,6 +313,8 @@ export default function Lookup() {
                 <div className="flex-1 text-center md:text-left relative z-10">
                   <h2 className="text-3xl font-extrabold text-slate-900 mb-2">{result?.name || 'Không xác định'}</h2>
                   <div className="flex flex-wrap justify-center md:justify-start gap-3">
+                    {result?.major_name && <span className="badge badge-purple px-4 py-1.5 text-xs" style={{ background: '#f3e8ff', color: '#7e22ce' }}>{result.major_name}</span>}
+                    {result?.batch_name && <span className="badge badge-orange px-4 py-1.5 text-xs" style={{ background: '#ffedd5', color: '#c2410c' }}>{result.batch_name} ({result.start_year}-{result.end_year})</span>}
                     <span className="badge badge-blue px-4 py-1.5 text-xs">{result?.class_name || 'Không rõ lớp'}</span>
                     <span className="badge badge-slate px-4 py-1.5 text-xs">{result?.record_count || 0} bản ghi Blockchain</span>
                   </div>
@@ -554,6 +558,8 @@ export default function Lookup() {
                           </p>
                           <p className="text-sm text-slate-500">
                             {verifyResult.student.name} • {verifyResult.student.student_id} • {verifyResult.student.class_name}
+                            {verifyResult.student.major && ` • ${verifyResult.student.major}`}
+                            {verifyResult.student.batch && ` • ${verifyResult.student.batch}`}
                           </p>
                         </div>
                       </div>
@@ -717,15 +723,17 @@ export default function Lookup() {
 
           {/* Student & Overall Summary Banner */}
           <div style={{ display: 'flex', gap: '24px', marginBottom: '40px' }}>
-            <div style={{ flex: '1' }}>
+            <div style={{ flex: '1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
               {[
                 { label: 'Họ tên sinh viên', value: result?.name },
                 { label: 'Mã số sinh viên', value: result?.student_id || query.toUpperCase() },
+                { label: 'Ngành đào tạo', value: result?.major_name },
+                { label: 'Khóa học', value: result?.batch_name ? `${result.batch_name} (${result.start_year} - ${result.end_year})` : 'N/A' },
                 { label: 'Lớp sinh hoạt', value: result?.class_name },
               ].map((item, idx) => (
-                <div key={idx} style={{ marginBottom: idx < 2 ? '12px' : '0' }}>
-                  <div style={{ fontSize: '9px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '2px', color: '#94a3b8' }}>{item.label}</div>
-                  <div style={{ fontSize: '16px', fontWeight: '700', color: '#0f172a' }}>{item.value || 'N/A'}</div>
+                <div key={idx} style={{ marginBottom: '4px' }}>
+                  <div style={{ fontSize: '8px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '2px', color: '#94a3b8' }}>{item.label}</div>
+                  <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>{item.value || 'N/A'}</div>
                 </div>
               ))}
             </div>
@@ -831,6 +839,8 @@ export default function Lookup() {
                         "sid": result.student_id || 'N/A',
                         "n": result.name || 'Unknown',
                         "c": result.class_name || 'N/A',
+                        "m": result.major_name || 'N/A',
+                        "b": result.batch_name || 'N/A',
                         "io": new Date().toISOString(),
                         "gs": (result?.grades || []).slice(0, 12).map(g => ({
                           "s": g?.subject || 'Unknown',
@@ -879,6 +889,8 @@ export default function Lookup() {
               "sid": result.student_id || 'N/A',
               "n": result.name || 'Unknown',
               "c": result.class_name || 'N/A',
+              "m": result.major_name || 'N/A',
+              "b": result.batch_name || 'N/A',
               "io": new Date().toISOString(),
               "gs": (result?.grades || []).slice(0, 12).map(g => ({
                 "s": g?.subject || 'Unknown',
