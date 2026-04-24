@@ -3,7 +3,8 @@ import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Database, CheckCircle, XCircle, RefreshCw, Loader2,
-  Hash, Clock, Shield, AlertTriangle, Activity, BarChart3, Blocks
+  Hash, Clock, Shield, AlertTriangle, Activity, BarChart3, Blocks,
+  ChevronRight, ExternalLink, Box, Fingerprint, Search, X
 } from 'lucide-react';
 import API_URL from '../config';
 
@@ -13,7 +14,9 @@ export default function BlockchainExplorer() {
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
-  const [filter, setFilter]   = useState('all'); // all | active | revoked
+  const [filter, setFilter]   = useState('all'); 
+  const [selectedBlock, setSelectedBlock] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const fetchExplorer = async () => {
     setLoading(true); setError(null);
@@ -30,193 +33,284 @@ export default function BlockchainExplorer() {
   useEffect(() => { fetchExplorer(); }, []);
 
   const filteredLogs = data?.logs?.filter(l => {
-    if (filter === 'active')  return l.status === 'Active';
-    if (filter === 'revoked') return l.status === 'Revoked';
-    return true;
+    const matchesFilter = filter === 'active' ? l.status === 'Active' : (filter === 'revoked' ? l.status === 'Revoked' : true);
+    const matchesSearch = searchQuery === '' || 
+                          l.data_hash?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          l.student_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          l.student_name?.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesFilter && matchesSearch;
   }) || [];
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', padding: '2rem' }}>
-      {/* Header */}
-      <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div style={{ width: '3rem', height: '3rem', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', borderRadius: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 20px rgba(99,102,241,0.4)' }}>
-              <Blocks size={20} color="white" />
+    <div className="min-h-screen bg-[#0a0f1e] text-slate-300 p-4 md:p-8 font-sans selection:bg-brand-500/30">
+      <div className="max-w-7xl mx-auto">
+        
+        {/* ── Header ── */}
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-brand-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-brand-500/20 rotate-3">
+              <Blocks size={24} className="text-white" />
             </div>
             <div>
-              <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#f1f5f9', margin: 0 }}>Blockchain Explorer</h1>
-              <p style={{ fontSize: '0.75rem', color: '#64748b', margin: 0, marginTop: '2px' }}>Security Academy — Immutable Ledger Network</p>
-            </div>
-          </div>
-          <button onClick={fetchExplorer} disabled={loading}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', color: '#94a3b8', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}>
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Làm mới
-          </button>
-        </div>
-
-        {/* Stats Cards */}
-        {data?.stats && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-            <StatCard icon={<Database size={20} />} label="Tổng Hash trên chuỗi" value={data.stats.totalHashes} color="#6366f1" glow="rgba(99,102,241,0.3)" />
-            <StatCard icon={<Shield size={20} />} label="Bản ghi đang hoạt động" value={data.stats.activeCount} color="#10b981" glow="rgba(16,185,129,0.3)" />
-            <StatCard icon={<AlertTriangle size={20} />} label="Đã thu hồi (Revoked)" value={data.stats.revokedCount} color="#f59e0b" glow="rgba(245,158,11,0.3)" />
-          </div>
-        )}
-
-        {/* Live Network Status */}
-        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '1rem', padding: '1rem 1.25rem', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', display: 'inline-block', boxShadow: '0 0 8px #10b981', animation: 'pulse 2s infinite' }} />
-            <span style={{ color: '#10b981', fontSize: '0.75rem', fontWeight: 700 }}>NETWORK ONLINE</span>
-          </div>
-          <span style={{ color: '#334155', fontSize: '0.75rem' }}>|</span>
-          <span style={{ color: '#64748b', fontSize: '0.75rem' }}><Activity size={12} style={{ display: 'inline', marginRight: '4px' }} />SHA-256 Hash Chain</span>
-          <span style={{ color: '#334155', fontSize: '0.75rem' }}>|</span>
-          <span style={{ color: '#64748b', fontSize: '0.75rem' }}><BarChart3 size={12} style={{ display: 'inline', marginRight: '4px' }} />RSA-2048 Signature</span>
-        </div>
-
-        {/* Filter Tabs */}
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-          {[{ id: 'all', label: 'Tất cả' }, { id: 'active', label: '🟢 Active' }, { id: 'revoked', label: '🔴 Revoked' }].map(t => (
-            <button key={t.id} onClick={() => setFilter(t.id)}
-              style={{ padding: '0.375rem 1rem', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', border: 'none', transition: 'all 0.15s',
-                background: filter === t.id ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.05)',
-                color: filter === t.id ? '#a5b4fc' : '#64748b' }}>
-              {t.label}
-            </button>
-          ))}
-          <span style={{ marginLeft: 'auto', color: '#475569', fontSize: '0.75rem', alignSelf: 'center' }}>{filteredLogs.length} bản ghi</span>
-        </div>
-
-        {/* Hash Chain List */}
-        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '1rem', overflow: 'hidden' }}>
-          <div className="overflow-x-auto scrollbar-thin">
-            <div style={{ minWidth: '800px' }}>
-              {/* Table Header */}
-              <div style={{ display: 'grid', gridTemplateColumns: '4rem 1.5fr 1.5fr 7rem 12rem', gap: '1rem', padding: '0.75rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.03)' }}>
-                <span style={{ color: '#475569', fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase' }}>#</span>
-                <span style={{ color: '#475569', fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase' }}>Transaction Hash (SHA-256)</span>
-                <span style={{ color: '#475569', fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase' }}>Nội dung bản ghi</span>
-                <span style={{ color: '#475569', fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase' }}>Trạng thái</span>
-                <span style={{ color: '#475569', fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase' }}>Timestamp</span>
+              <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">Blockchain Explorer</h1>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Mainnet Live Node</p>
               </div>
-
-          {loading ? (
-            <div style={{ padding: '4rem', textAlign: 'center', color: '#475569' }}>
-              <Loader2 size={32} style={{ margin: '0 auto 1rem', display: 'block', animation: 'spin 1s linear infinite' }} />
-              <p style={{ fontSize: '0.875rem' }}>Đang đọc dữ liệu từ Blockchain Node...</p>
             </div>
-          ) : error ? (
-            <div style={{ padding: '4rem', textAlign: 'center', color: '#f87171' }}>
-              <XCircle size={32} style={{ margin: '0 auto 1rem', display: 'block' }} />
-              <p style={{ fontSize: '0.875rem' }}>{error}</p>
-            </div>
-          ) : filteredLogs.length === 0 ? (
-            <div style={{ padding: '4rem', textAlign: 'center', color: '#475569' }}>
-              <Database size={32} style={{ margin: '0 auto 1rem', display: 'block' }} />
-              <p style={{ fontSize: '0.875rem' }}>Chưa có giao dịch nào trên Blockchain</p>
-            </div>
-          ) : (
-            <AnimatePresence>
-              {filteredLogs.map((log, idx) => (
-                    <motion.div key={log.id}
-                      initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: idx * 0.01 }}
-                      style={{ display: 'grid', gridTemplateColumns: '4rem 1.5fr 1.5fr 7rem 12rem', gap: '1rem', padding: '0.875rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center',
-                        background: log.status === 'Revoked' ? 'rgba(239,68,68,0.04)' : 'transparent',
-                        transition: 'background 0.15s' }}
-                      onMouseEnter={e => e.currentTarget.style.background = log.status === 'Revoked' ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.03)'}
-                      onMouseLeave={e => e.currentTarget.style.background = log.status === 'Revoked' ? 'rgba(239,68,68,0.04)' : 'transparent'}
-                    >
-                      {/* Block number */}
-                      <span style={{ color: '#334155', fontSize: '0.6875rem', fontWeight: 700 }}>#{log.id}</span>
-  
-                    {/* Hash */}
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <Hash size={12} color="#6366f1" />
-                        <code style={{ fontSize: '0.6875rem', color: '#94a3b8', fontFamily: 'monospace', letterSpacing: '0.02em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {log.data_hash}
-                        </code>
-                      </div>
-                      {log.status === 'Revoked' && (
-                        <p style={{ fontSize: '0.625rem', color: '#f87171', marginTop: '2px', marginLeft: '1.2rem' }}>
-                          ⚠ Thu hồi bởi {log.revoked_by}: {log.revoke_reason}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Record Details */}
-                    <div>
-                      {log.record_type !== 'System' ? (
-                        <>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                             <span style={{ 
-                               fontSize: '0.625rem', 
-                               fontWeight: 800, 
-                               padding: '2px 6px', 
-                               borderRadius: '4px',
-                               background: log.record_type === 'Grade' ? 'rgba(139, 92, 246, 0.1)' : 'rgba(236, 72, 153, 0.1)',
-                               color: log.record_type === 'Grade' ? '#c084fc' : '#f472b6',
-                               textTransform: 'uppercase'
-                             }}>
-                               {log.record_type}
-                             </span>
-                             <span style={{ fontSize: '0.75rem', color: '#f1f5f9', fontWeight: 600 }}>{log.record_name}</span>
-                          </div>
-                          <p style={{ fontSize: '0.6875rem', color: '#64748b', marginTop: '2px' }}>
-                            {log.student_name} ({log.student_id})
-                          </p>
-                        </>
-                      ) : (
-                        <span style={{ fontSize: '0.6875rem', color: '#475569', fontStyle: 'italic' }}>Dữ liệu hệ thống</span>
-                      )}
-                    </div>
-  
-                    {/* Status Badge */}
-                    <span style={{
-                      display: 'inline-flex', alignItems: 'center', gap: '0.375rem',
-                      padding: '0.25rem 0.75rem', borderRadius: '9999px', fontSize: '0.6875rem', fontWeight: 700,
-                      background: log.status === 'Active' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
-                      color: log.status === 'Active' ? '#34d399' : '#f87171',
-                      border: `1px solid ${log.status === 'Active' ? 'rgba(52,211,153,0.3)' : 'rgba(248,113,113,0.3)'}`
-                    }}>
-                      {log.status === 'Active' ? <CheckCircle size={10} /> : <XCircle size={10} />}
-                      {log.status}
-                    </span>
-  
-                    {/* Timestamp */}
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: '#475569', fontSize: '0.6875rem', whiteSpace: 'nowrap' }}>
-                      <Clock size={10} />
-                      {new Date(log.timestamp).toLocaleString('vi-VN')}
-                    </span>
-                  </motion.div>
-              ))}
-              </AnimatePresence>
-            )}
           </div>
-        </div>
-      </div>
+          
+          <div className="flex items-center gap-3">
+             <div className="relative group">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-brand-400 transition-colors" size={16} />
+                <input 
+                  type="text" 
+                  placeholder="Tìm hash, MSSV..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="bg-slate-900/50 border border-slate-800 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:border-brand-500/50 focus:ring-4 focus:ring-brand-500/5 transition-all w-full md:w-64"
+                />
+             </div>
+             <button onClick={fetchExplorer} disabled={loading}
+              className="p-2.5 bg-slate-900 border border-slate-800 rounded-xl hover:border-slate-700 transition-all text-slate-400 disabled:opacity-50">
+              <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+            </button>
+          </div>
+        </header>
 
-        {/* Footer note */}
-        <p style={{ textAlign: 'center', color: '#334155', fontSize: '0.6875rem', marginTop: '1.5rem' }}>
-          Security Academy Blockchain Ledger • SHA-256 Immutable Hash Chain • RSA-2048 Digital Signature
-        </p>
+        {/* ── Stats ── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+          <StatCard icon={<Database size={20} />} label="Total Records" value={data?.stats?.totalHashes || 0} color="text-brand-400" bg="bg-brand-500/5" />
+          <StatCard icon={<Shield size={20} />} label="Verified" value={data?.stats?.activeCount || 0} color="text-emerald-400" bg="bg-emerald-500/5" />
+          <StatCard icon={<AlertTriangle size={20} />} label="Revoked" value={data?.stats?.revokedCount || 0} color="text-amber-400" bg="bg-amber-500/5" />
+          <StatCard icon={<Activity size={20} />} label="TPS" value="0.87" color="text-indigo-400" bg="bg-indigo-500/5" />
+        </div>
+
+        {/* ── Filter Tabs ── */}
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+           <div className="flex bg-slate-900/80 p-1 rounded-xl border border-slate-800">
+              {[
+                { id: 'all', label: 'Tất cả' },
+                { id: 'active', label: 'Hoạt động' },
+                { id: 'revoked', label: 'Thu hồi' }
+              ].map(t => (
+                <button 
+                  key={t.id} 
+                  onClick={() => setFilter(t.id)}
+                  className={`px-5 py-2 rounded-lg text-xs font-bold transition-all ${filter === t.id ? 'bg-brand-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                  {t.label}
+                </button>
+              ))}
+           </div>
+           <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+              Found {filteredLogs.length} blocks
+           </p>
+        </div>
+
+        {/* ── Desktop Table ── */}
+        <div className="hidden lg:block bg-slate-900/30 border border-slate-800/50 rounded-2xl overflow-hidden backdrop-blur-sm">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-900/50 text-[10px] uppercase font-black tracking-[0.15em] text-slate-500 border-b border-slate-800">
+                <th className="px-6 py-4">Block</th>
+                <th className="px-6 py-4">Hash ID</th>
+                <th className="px-6 py-4">Record Name</th>
+                <th className="px-6 py-4">Owner</th>
+                <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4 text-right">Age</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/50">
+              {loading ? (
+                <tr><td colSpan={6} className="py-20 text-center"><Loader2 size={32} className="animate-spin mx-auto text-brand-500" /></td></tr>
+              ) : filteredLogs.map((log, idx) => (
+                <tr 
+                  key={log.id} 
+                  onClick={() => setSelectedBlock(log)}
+                  className="group hover:bg-white/[0.02] cursor-pointer transition-colors"
+                >
+                  <td className="px-6 py-5">
+                    <span className="text-sm font-mono text-brand-400">#{log.id}</span>
+                  </td>
+                  <td className="px-6 py-5">
+                    <div className="flex items-center gap-2">
+                      <Fingerprint size={14} className="text-slate-600" />
+                      <code className="text-[11px] text-slate-400 group-hover:text-brand-300 transition-colors">
+                        {log.data_hash?.substring(0, 8)}...{log.data_hash?.substring(log.data_hash.length - 8)}
+                      </code>
+                    </div>
+                  </td>
+                  <td className="px-6 py-5">
+                    <div className="flex items-center gap-2">
+                       <div className={`w-1.5 h-1.5 rounded-full ${log.record_type === 'Grade' ? 'bg-indigo-500' : 'bg-pink-500'}`} />
+                       <span className="text-sm font-bold text-slate-200">{log.record_name || 'System Record'}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-5">
+                    <span className="text-xs text-slate-500">{log.student_name || 'N/A'}</span>
+                  </td>
+                  <td className="px-6 py-5">
+                    <StatusBadge status={log.status} />
+                  </td>
+                  <td className="px-6 py-5 text-right">
+                    <span className="text-[11px] text-slate-600 font-medium">
+                      {formatTime(log.timestamp)}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* ── Mobile Card View ── */}
+        <div className="lg:hidden space-y-4">
+          {loading ? (
+             <div className="py-20 text-center"><Loader2 size={32} className="animate-spin mx-auto text-brand-500" /></div>
+          ) : filteredLogs.map(log => (
+            <div 
+              key={log.id} 
+              onClick={() => setSelectedBlock(log)}
+              className="bg-slate-900/50 border border-slate-800 p-5 rounded-2xl active:scale-[0.98] transition-transform"
+            >
+              <div className="flex justify-between items-start mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-brand-500/10 rounded-lg flex items-center justify-center text-brand-400 font-mono text-xs">
+                    #{log.id}
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-white">{log.record_name || 'System'}</h4>
+                    <p className="text-[10px] text-slate-500 uppercase tracking-wider">{log.record_type}</p>
+                  </div>
+                </div>
+                <StatusBadge status={log.status} />
+              </div>
+              <div className="space-y-3">
+                <div className="flex justify-between text-[11px]">
+                  <span className="text-slate-500">Hash ID</span>
+                  <code className="text-brand-300">{log.data_hash?.substring(0, 10)}...</code>
+                </div>
+                <div className="flex justify-between text-[11px]">
+                  <span className="text-slate-500">Owner</span>
+                  <span className="text-slate-300">{log.student_name || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between text-[11px]">
+                  <span className="text-slate-500">Time</span>
+                  <span className="text-slate-600">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Detail Modal ── */}
+        <AnimatePresence>
+          {selectedBlock && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <motion.div 
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                onClick={() => setSelectedBlock(null)}
+                className="absolute inset-0 bg-black/80 backdrop-blur-md"
+              />
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9, y: 20 }} 
+                animate={{ opacity: 1, scale: 1, y: 0 }} 
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="relative bg-[#111827] border border-slate-800 w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl"
+              >
+                <div className="px-6 py-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
+                   <div className="flex items-center gap-3">
+                      <Box className="text-brand-500" size={20} />
+                      <h3 className="font-bold text-white">Chi tiết khối #{selectedBlock.id}</h3>
+                   </div>
+                   <button onClick={() => setSelectedBlock(null)} className="p-2 hover:bg-slate-800 rounded-xl transition-colors">
+                      <X size={20} className="text-slate-500" />
+                   </button>
+                </div>
+                
+                <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+                  <DetailItem label="Transaction Hash" value={selectedBlock.data_hash} isCopyable />
+                  <div className="grid grid-cols-2 gap-6">
+                    <DetailItem label="Loại bản ghi" value={selectedBlock.record_type} />
+                    <DetailItem label="Trạng thái" value={selectedBlock.status} isStatus />
+                  </div>
+                  <DetailItem label="Đối tượng" value={`${selectedBlock.student_name || 'N/A'} (${selectedBlock.student_id || 'N/A'})`} />
+                  <DetailItem label="Nội dung" value={selectedBlock.record_name} />
+                  <DetailItem label="Thời gian ký" value={new Date(selectedBlock.timestamp).toLocaleString('vi-VN')} />
+                  
+                  <div className="pt-4">
+                    <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3">Blockchain Metadata</p>
+                    <div className="bg-black/40 rounded-2xl p-4 border border-slate-800 font-mono text-[11px] text-emerald-500/80 leading-relaxed whitespace-pre-wrap break-all">
+                      {JSON.stringify(selectedBlock, null, 2)}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="p-6 bg-slate-900/50 border-t border-slate-800 flex justify-end">
+                   <button onClick={() => setSelectedBlock(null)} className="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-sm font-bold transition-all">
+                      Đóng
+                   </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
       </div>
     </div>
   );
 }
 
-function StatCard({ icon, label, value, color, glow }) {
+function StatCard({ icon, label, value, color, bg }) {
   return (
-    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '1rem', padding: '1.25rem', position: 'relative', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', top: '-1rem', right: '-1rem', width: '5rem', height: '5rem', borderRadius: '50%', background: glow, filter: 'blur(20px)', opacity: 0.6 }} />
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
-        <div style={{ color, background: `${color}20`, padding: '0.5rem', borderRadius: '0.625rem' }}>{icon}</div>
-        <span style={{ fontSize: '0.6875rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
+    <div className={`p-5 rounded-2xl border border-slate-800/50 bg-slate-900/30 ${bg} backdrop-blur-sm`}>
+      <div className="flex items-center gap-3 mb-3">
+        <div className={`${color} opacity-80`}>{icon}</div>
+        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{label}</span>
       </div>
-      <p style={{ fontSize: '2rem', fontWeight: 800, color: '#f1f5f9', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{value}</p>
+      <p className="text-2xl font-black text-white">{value}</p>
     </div>
   );
+}
+
+function StatusBadge({ status }) {
+  const isActive = status === 'Active';
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${isActive ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
+      <span className={`w-1 h-1 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+      {status}
+    </span>
+  );
+}
+
+function DetailItem({ label, value, isCopyable, isStatus }) {
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{label}</p>
+      <div className="flex items-center gap-2 group">
+        <p className={`text-sm font-bold ${isStatus ? (value === 'Active' ? 'text-emerald-500' : 'text-amber-500') : 'text-slate-200'} break-all`}>
+          {value}
+        </p>
+        {isCopyable && (
+          <button 
+            onClick={() => navigator.clipboard.writeText(value)}
+            className="p-1.5 text-slate-600 hover:text-brand-400 hover:bg-brand-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+          >
+            <ExternalLink size={14} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function formatTime(timestamp) {
+  const seconds = Math.floor((new Date() - new Date(timestamp)) / 1000);
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return new Date(timestamp).toLocaleDateString();
 }
