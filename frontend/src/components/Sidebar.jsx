@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   ShieldCheck, Search, LayoutDashboard, LogOut, 
-  Users, BookOpen, Scroll, Lock, Blocks, ScanLine
+  Users, BookOpen, Scroll, Lock, Blocks, ScanLine, X
 } from 'lucide-react';
 
 const NAV = [
@@ -12,14 +12,14 @@ const NAV = [
   { id: 'dashboard', label: 'Quản trị',            icon: LayoutDashboard, public: false },
 ];
 
-export default function Sidebar({ activeTab, setActiveTab, user, onLogout }) {
+export default function Sidebar({ activeTab, setActiveTab, user, onLogout, isOpen, setIsOpen }) {
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${isOpen ? 'sidebar-open' : ''}`}>
       {/* ── Brand ── */}
-      <div className="px-5 py-6 border-b border-slate-100">
+      <div className="px-5 py-6 border-b border-slate-100 flex items-center justify-between">
         <button
           onClick={() => setActiveTab('lookup')}
-          className="flex items-center gap-3 group w-full"
+          className="flex items-center gap-3 group"
         >
           <div className="w-9 h-9 bg-brand-600 rounded-xl flex items-center justify-center shadow-md shadow-brand-500/30 group-hover:scale-105 transition-transform">
             <ShieldCheck size={20} className="text-white" />
@@ -28,6 +28,13 @@ export default function Sidebar({ activeTab, setActiveTab, user, onLogout }) {
             <div className="text-sm font-bold text-slate-900 tracking-tight">Security Academy</div>
             <div className="text-[10px] text-slate-400 font-semibold">Academic Ledger</div>
           </div>
+        </button>
+
+        <button 
+          onClick={() => setIsOpen(false)}
+          className="lg:hidden p-2 text-slate-400 hover:bg-slate-100 rounded-lg"
+        >
+          <X size={20} />
         </button>
       </div>
 

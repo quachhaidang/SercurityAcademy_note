@@ -60,7 +60,7 @@ export default function Dashboard({ userToken, userRole }) {
   return (
     <div className="page-container">
       {/* ── Stats ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.25rem', marginBottom: '2rem' }}>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
         <StatCard label="Tổng sinh viên" value={students.length} icon={<Users size={20} />} change="+2 tuần này" color="blue" loading={loading} />
         <StatCard label="Tổng bản ghi BC" value={grades.length + certs.length} icon={<Database size={20} />} change="SHA-256 hashed" color="indigo" loading={loading} />
         <StatCard label="Cảnh báo tính toàn vẹn" value={tampered} icon={<AlertCircle size={20} />} change={tampered === 0 ? 'Toàn bộ hợp lệ' : 'Cần kiểm tra'} color={tampered === 0 ? 'green' : 'red'} loading={loading} />

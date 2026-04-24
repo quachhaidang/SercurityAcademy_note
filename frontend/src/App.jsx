@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Menu, X } from 'lucide-react';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import Lookup from './components/Lookup';
@@ -10,6 +11,7 @@ import BlockchainExplorer from './components/BlockchainExplorer';
 function App() {
   const [activeTab, setActiveTab] = useState('lookup');
   const [user, setUser] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const isLanding = activeTab === 'lookup' || activeTab === 'verifier' || activeTab === 'explorer';
 
@@ -44,17 +46,33 @@ function App() {
       ) : (
         <Sidebar
           activeTab={activeTab}
-          setActiveTab={setActiveTab}
+          setActiveTab={(tab) => { setActiveTab(tab); setSidebarOpen(false); }}
           user={user}
           onLogout={handleLogout}
+          isOpen={sidebarOpen}
+          setIsOpen={setSidebarOpen}
+        />
+      )}
+
+      {/* Mobile Overlay */}
+      {!isLanding && sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
         />
       )}
 
       <div className={`main-content flex-1 flex flex-col ${isLanding ? 'main-content-full' : ''}`} style={{ paddingTop: isLanding ? '4.5rem' : '4rem' }}>
         {/* ── Header ── (Only show when not on landing) */}
         {!isLanding && (
-          <header className={`main-header ${isLanding ? 'hidden' : ''}`} style={{ left: isLanding ? '0' : '16rem' }}>
+          <header className={`main-header ${isLanding ? 'hidden' : ''}`} style={{ left: isLanding ? '0' : '' }}>
             <div className="flex items-center gap-3">
+              <button 
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg"
+              >
+                <Menu size={20} />
+              </button>
               <div>
                 <h1 className="text-sm font-bold text-slate-900">
                   {activeTab === 'login'     && 'Đăng nhập hệ thống'}

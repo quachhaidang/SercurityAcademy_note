@@ -57,7 +57,7 @@ export default function BlockchainExplorer() {
 
         {/* Stats Cards */}
         {data?.stats && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '1rem', marginBottom: '2rem' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
             <StatCard icon={<Database size={20} />} label="Tổng Hash trên chuỗi" value={data.stats.totalHashes} color="#6366f1" glow="rgba(99,102,241,0.3)" />
             <StatCard icon={<Shield size={20} />} label="Bản ghi đang hoạt động" value={data.stats.activeCount} color="#10b981" glow="rgba(16,185,129,0.3)" />
             <StatCard icon={<AlertTriangle size={20} />} label="Đã thu hồi (Revoked)" value={data.stats.revokedCount} color="#f59e0b" glow="rgba(245,158,11,0.3)" />
@@ -91,14 +91,16 @@ export default function BlockchainExplorer() {
 
         {/* Hash Chain List */}
         <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '1rem', overflow: 'hidden' }}>
-          {/* Table Header */}
-          <div style={{ display: 'grid', gridTemplateColumns: '2rem 1fr 1.5fr auto auto', gap: '1rem', padding: '0.75rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.03)' }}>
-            <span style={{ color: '#475569', fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase' }}>#</span>
-            <span style={{ color: '#475569', fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase' }}>Transaction Hash (SHA-256)</span>
-            <span style={{ color: '#475569', fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase' }}>Nội dung bản ghi</span>
-            <span style={{ color: '#475569', fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase' }}>Trạng thái</span>
-            <span style={{ color: '#475569', fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase' }}>Timestamp</span>
-          </div>
+          <div className="overflow-x-auto scrollbar-thin">
+            <div style={{ minWidth: '800px' }}>
+              {/* Table Header */}
+              <div style={{ display: 'grid', gridTemplateColumns: '4rem 1.5fr 1.5fr 7rem 12rem', gap: '1rem', padding: '0.75rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.03)' }}>
+                <span style={{ color: '#475569', fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase' }}>#</span>
+                <span style={{ color: '#475569', fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase' }}>Transaction Hash (SHA-256)</span>
+                <span style={{ color: '#475569', fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase' }}>Nội dung bản ghi</span>
+                <span style={{ color: '#475569', fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase' }}>Trạng thái</span>
+                <span style={{ color: '#475569', fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase' }}>Timestamp</span>
+              </div>
 
           {loading ? (
             <div style={{ padding: '4rem', textAlign: 'center', color: '#475569' }}>
@@ -118,17 +120,17 @@ export default function BlockchainExplorer() {
           ) : (
             <AnimatePresence>
               {filteredLogs.map((log, idx) => (
-                  <motion.div key={log.id}
-                    initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: idx * 0.01 }}
-                    style={{ display: 'grid', gridTemplateColumns: '2rem 1fr 1.5fr auto auto', gap: '1rem', padding: '0.875rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center',
-                      background: log.status === 'Revoked' ? 'rgba(239,68,68,0.04)' : 'transparent',
-                      transition: 'background 0.15s' }}
-                    onMouseEnter={e => e.currentTarget.style.background = log.status === 'Revoked' ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.03)'}
-                    onMouseLeave={e => e.currentTarget.style.background = log.status === 'Revoked' ? 'rgba(239,68,68,0.04)' : 'transparent'}
-                  >
-                    {/* Block number */}
-                    <span style={{ color: '#334155', fontSize: '0.6875rem', fontWeight: 700 }}>#{log.id}</span>
+                    <motion.div key={log.id}
+                      initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: idx * 0.01 }}
+                      style={{ display: 'grid', gridTemplateColumns: '4rem 1.5fr 1.5fr 7rem 12rem', gap: '1rem', padding: '0.875rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center',
+                        background: log.status === 'Revoked' ? 'rgba(239,68,68,0.04)' : 'transparent',
+                        transition: 'background 0.15s' }}
+                      onMouseEnter={e => e.currentTarget.style.background = log.status === 'Revoked' ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.03)'}
+                      onMouseLeave={e => e.currentTarget.style.background = log.status === 'Revoked' ? 'rgba(239,68,68,0.04)' : 'transparent'}
+                    >
+                      {/* Block number */}
+                      <span style={{ color: '#334155', fontSize: '0.6875rem', fontWeight: 700 }}>#{log.id}</span>
   
                     {/* Hash */}
                     <div style={{ minWidth: 0 }}>
@@ -192,8 +194,9 @@ export default function BlockchainExplorer() {
                   </motion.div>
               ))}
             </AnimatePresence>
-          )}
+          </div>
         </div>
+      </div>
 
         {/* Footer note */}
         <p style={{ textAlign: 'center', color: '#334155', fontSize: '0.6875rem', marginTop: '1.5rem' }}>
