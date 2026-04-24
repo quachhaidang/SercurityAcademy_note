@@ -7,8 +7,9 @@ import {
   Clock, User, Loader2, AlertTriangle, FileCheck, X,
   Camera, CameraOff, Building2, Globe, Key, Ban
 } from 'lucide-react';
+import API_URL_CONFIG from '../config';
 
-const API_URL = 'http://localhost:3000';
+const API_URL = API_URL_CONFIG;
 
 export default function Verifier() {
   const [file, setFile]                       = useState(null);

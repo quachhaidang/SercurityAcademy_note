@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
@@ -12,8 +13,8 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 // app.use(express.static('frontend')); // Frontend is now a separate React app
 
-const PORT = 3000;
-const SECRET_KEY = "dummy_secret_for_demo";
+const PORT = process.env.PORT || 3000;
+const SECRET_KEY = process.env.SECRET_KEY || "dummy_secret_for_demo";
 
 let db;
 let bcm;

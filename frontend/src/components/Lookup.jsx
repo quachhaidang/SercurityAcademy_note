@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import axios from 'axios';
+import API_URL from '../config';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { 
@@ -33,7 +34,7 @@ export default function Lookup() {
     if (!query.trim()) return;
     setLoading(true); setError(''); setResult(null); setActiveTab('summary');
     try {
-      const { data } = await axios.get(`http://localhost:3000/api/public/lookup/${query.trim()}`);
+      const { data } = await axios.get(`${API_URL}/api/public/lookup/${query.trim()}`);
       setResult(data);
       // Scroll to result
       setTimeout(() => {
@@ -60,7 +61,7 @@ export default function Lookup() {
           "id": "https://security-academy.edu.vn",
           "type": "Profile",
           "name": "Security Academy",
-          "publicKey": "http://localhost:3000/api/public/config"
+          "publicKey": "${API_URL}/api/public/config"
         }
       },
       "recipient": {
@@ -203,7 +204,7 @@ export default function Lookup() {
           return { subject: g.subject, scores: g.scores, authenticityValid: false, integrityValid: false, error: 'Thiếu dữ liệu xác minh' };
         }
         try {
-          const { data } = await axios.post('http://localhost:3000/api/public/verify', { dataString, signature, hash });
+          const { data } = await axios.post('${API_URL}/api/public/verify', { dataString, signature, hash });
           return { subject: g.subject, scores: g.scores, ...data };
         } catch {
           return { subject: g.subject, scores: g.scores, authenticityValid: false, integrityValid: false, error: 'Lỗi kết nối server' };

@@ -7,8 +7,9 @@ import {
   Loader2, Database, AlertCircle, Pencil, Ban
 } from 'lucide-react';
 import { showMessageBox } from './MessageBox';
+import API_URL from '../config';
 
-const API = 'http://localhost:3000';
+const API = API_URL;
 
 export default function Dashboard({ userToken, userRole }) {
   const [tab, setTab] = useState('students');

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import API_URL from '../config';
 import { Mail, Lock, Eye, EyeOff, Loader2, ShieldCheck, LogIn, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -17,7 +18,7 @@ export default function Login({ onLoginSuccess }) {
     e.preventDefault();
     setLoading(true); reset();
     try {
-      const { data } = await axios.post(`http://localhost:3000/api/auth/login`, { username, password });
+      const { data } = await axios.post(`${API_URL}/api/auth/login`, { username, password });
       onLoginSuccess(data);
     } catch (err) {
       setError(err.response?.data?.error || 'Sai thông tin đăng nhập.');

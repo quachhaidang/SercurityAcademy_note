@@ -5,8 +5,9 @@ import {
   Database, CheckCircle, XCircle, RefreshCw, Loader2,
   Hash, Clock, Shield, AlertTriangle, Activity, BarChart3, Blocks
 } from 'lucide-react';
+import API_URL from '../config';
 
-const API = 'http://localhost:3000';
+const API = API_URL;
 
 export default function BlockchainExplorer() {
   const [data, setData]       = useState(null);
