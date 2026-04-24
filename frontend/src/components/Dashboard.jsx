@@ -2,11 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Users, BookOpen, Scroll, Plus, Trash2, FileUp,
+  Users, BookOpen, Scroll, Plus, Trash2, FileUp, Download,
   ShieldCheck, CheckCircle2, XCircle, RefreshCw,
   Loader2, Database, AlertCircle, Pencil, Ban
 } from 'lucide-react';
 import { showMessageBox } from './MessageBox';
+import * as XLSX from 'xlsx-js-style';
 import API_URL from '../config';
 
 const API = API_URL;
@@ -614,6 +615,321 @@ function GradeTab({ grades, students, catClasses, catSubjects, catAcademicYears 
     }
   };
 
+  const fileInputRef = useRef();
+
+  const handleExportExcel = () => {
+    if (!selectedClass || !subject || !academicYear) {
+      showMessageBox({ type: 'alert', title: 'Lỗi', desc: 'Vui lòng chọn đầy đủ Lớp, Môn, Năm học để xuất file Excel.' });
+      return;
+    }
+
+    // Extract semester number for display
+    const semesterNum = semester.replace(/[^0-9]/g, '') || '1';
+    const className = selectedClass || '';
+    // Try to extract "Khối" from class name (e.g., "10C1" -> "10")
+    const khoiMatch = className.match(/^(\d+)/);
+    const khoi = khoiMatch ? khoiMatch[1] : '';
+
+    // Number of empty data rows for the form template
+    const EMPTY_ROWS = 30;
+
+    // ══════════════════════════════════════════════════════════
+    // ROW LAYOUT (matching screenshot exactly)
+    // ══════════════════════════════════════════════════════════
+    // Columns: A=STT, B=Mã học sinh, C=Họ đệm, D=Tên, E=Ngày sinh,
+    //          F-K=ĐĐGtx(Tx1-Tx6), L=ĐĐG GCK, M=ĐTB, N=ĐTBmhk,
+    //          O=Nhận xét, P=HKI, Q=HKII, R=CN
+    // Col indices: A=0,B=1,C=2,D=3,E=4,F=5,G=6,H=7,I=8,J=9,K=10,L=11,M=12,N=13,O=14,P=15,Q=16,R=17
+
+    const wsData = [];
+
+    // Row 1: SỞ GIÁO DỤC VÀ ĐÀO TẠO TÂY NINH
+    wsData.push(["", "", "SỞ GIÁO DỤC VÀ ĐÀO TẠO TÂY NINH"]);
+    // Row 2: TRƯỜNG THPT LÊ QUÝ ĐÔN
+    wsData.push(["", "", "TRƯỜNG CAO ĐẲNG SƯ PHẠM TÂY NINH "]);
+    // Row 3: BẢNG ĐIỂM CHI TIẾT MÔN ... HỌC KỲ ... NĂM HỌC ...
+    wsData.push(["", `BẢNG ĐIỂM CHI TIẾT  MÔN ${subject}  HỌC KỲ ${semesterNum}  NĂM HỌC ${academicYear}`]);
+    // Row 4: Khối ... - Lớp ...
+    wsData.push(["", "", "", "", `Lớp ${className}`]);
+    // Row 5: empty
+    wsData.push([]);
+
+    // Row 6: Header row 1 (with merged group headers)
+    // A6=STT, B6=Mã học sinh, C6=Họ và tên (merge C6:D6), E6=Ngày sinh,
+    // F6=ĐĐGtx (merge F6:K6), L6=ĐĐG (merge L6:L7 or just L6), M6=ĐTB (merge M6:M7),
+    // N6=ĐTBmhk, O6=Nhận xét, P6=HKI, Q6=HKII, R6=CN
+    wsData.push([
+      "STT", "Mã học\nsinh", "Họ và tên", "", "Ngày sinh",
+      "", "ĐĐGtx", "", "", "", "",
+      "ĐTB\nmhk", "Nhận xét", "HKI", "HKII", "CN"
+    ]);
+
+    // Row 7: Header row 2 (sub-columns)
+    wsData.push([
+      "", "", "Họ đệm", "Tên", "",
+      "Tx1", "Tx2", "Tx3", "Tx4", "GK", "CK",
+      "", "", "", "", ""
+    ]);
+
+    // Rows 8+: Data rows from grade table
+    if (filteredStudents.length > 0) {
+      filteredStudents.forEach((s, i) => {
+        const g = getMergedGrade(s.student_id);
+        const avg = getComputedAvg(s.student_id);
+        // Split name into "Họ đệm" and "Tên"
+        const nameParts = (s.name || '').trim().split(/\s+/);
+        const ten = nameParts.length > 0 ? nameParts[nameParts.length - 1] : '';
+        const hoDem = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : '';
+
+        wsData.push([
+          i + 1,
+          s.student_id,
+          hoDem,
+          ten,
+          s.date_of_birth || '',
+          g.tx1 || '', g.tx2 || '', g.tx3 || '', g.tx4 || '', g.gk || '', g.ck || '',
+          avg || (g.score ? parseFloat(g.score).toFixed(1) : ''),
+          '', '', '', ''
+        ]);
+      });
+    } else {
+      // Empty form template if no students
+      for (let i = 1; i <= EMPTY_ROWS; i++) {
+        wsData.push([
+          i, "", "", "", "",
+          "", "", "", "", "", "",
+          "", "", "", "", ""
+        ]);
+      }
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    // ══════════════════════════════════════════════════════════
+    // MERGES
+    // ══════════════════════════════════════════════════════════
+    ws["!merges"] = [
+      // Row 1: title merge C1:K1
+      { s: { r: 0, c: 2 }, e: { r: 0, c: 10 } },
+      // Row 2: school name merge C2:K2
+      { s: { r: 1, c: 2 }, e: { r: 1, c: 10 } },
+      // Row 3: BẢNG ĐIỂM CHI TIẾT merge B3:P3
+      { s: { r: 2, c: 1 }, e: { r: 2, c: 15 } },
+      // Row 4: Lớp merge E4:J4
+      { s: { r: 3, c: 4 }, e: { r: 3, c: 9 } },
+
+      // Header Row 6-7 merges:
+      // STT (A6:A7)
+      { s: { r: 5, c: 0 }, e: { r: 6, c: 0 } },
+      // Mã học sinh (B6:B7)
+      { s: { r: 5, c: 1 }, e: { r: 6, c: 1 } },
+      // Họ và tên group (C6:D6)
+      { s: { r: 5, c: 2 }, e: { r: 5, c: 3 } },
+      // Ngày sinh (E6:E7)
+      { s: { r: 5, c: 4 }, e: { r: 6, c: 4 } },
+      // ĐĐGtx group (F6:K6) - Tx1,Tx2,Tx3,Tx4,GK,CK
+      { s: { r: 5, c: 5 }, e: { r: 5, c: 10 } },
+      // ĐTB mhk (L6:L7)
+      { s: { r: 5, c: 11 }, e: { r: 6, c: 11 } },
+      // Nhận xét (M6:M7)
+      { s: { r: 5, c: 12 }, e: { r: 6, c: 12 } },
+      // HKI (N6:N7)
+      { s: { r: 5, c: 13 }, e: { r: 6, c: 13 } },
+      // HKII (O6:O7)
+      { s: { r: 5, c: 14 }, e: { r: 6, c: 14 } },
+      // CN (P6:P7)
+      { s: { r: 5, c: 15 }, e: { r: 6, c: 15 } },
+    ];
+
+    // ══════════════════════════════════════════════════════════
+    // COLUMN WIDTHS
+    // ══════════════════════════════════════════════════════════
+    ws['!cols'] = [
+      { wch: 4 },   // A: STT
+      { wch: 12 },  // B: Mã học sinh
+      { wch: 18 },  // C: Họ đệm
+      { wch: 10 },  // D: Tên
+      { wch: 12 },  // E: Ngày sinh
+      { wch: 5 },   // F: Tx1
+      { wch: 5 },   // G: Tx2
+      { wch: 5 },   // H: Tx3
+      { wch: 5 },   // I: Tx4
+      { wch: 5 },   // J: GK
+      { wch: 5 },   // K: CK
+      { wch: 6 },   // L: ĐTB mhk
+      { wch: 12 },  // M: Nhận xét
+      { wch: 5 },   // N: HKI
+      { wch: 5 },   // O: HKII
+      { wch: 5 },   // P: CN
+    ];
+
+    // Row heights
+    ws['!rows'] = [
+      { hpt: 18 },  // Row 1
+      { hpt: 18 },  // Row 2
+      { hpt: 22 },  // Row 3
+      { hpt: 18 },  // Row 4
+      { hpt: 12 },  // Row 5
+      { hpt: 30 },  // Row 6 (header 1)
+      { hpt: 22 },  // Row 7 (header 2)
+    ];
+
+    // ══════════════════════════════════════════════════════════
+    // STYLES
+    // ══════════════════════════════════════════════════════════
+    const borderAll = {
+      top:    { style: "thin", color: { rgb: "000000" } },
+      bottom: { style: "thin", color: { rgb: "000000" } },
+      left:   { style: "thin", color: { rgb: "000000" } },
+      right:  { style: "thin", color: { rgb: "000000" } }
+    };
+
+    const titleStyle = {
+      font: { bold: true, sz: 11 },
+      alignment: { horizontal: "center", vertical: "center" }
+    };
+    const schoolStyle = {
+      font: { bold: true, sz: 11 },
+      alignment: { horizontal: "center", vertical: "center" }
+    };
+    const bangDiemStyle = {
+      font: { bold: true, sz: 12 },
+      alignment: { horizontal: "center", vertical: "center" }
+    };
+    const khoiLopStyle = {
+      font: { bold: true, sz: 11, italic: true },
+      alignment: { horizontal: "center", vertical: "center" }
+    };
+    const headerCellStyle = {
+      font: { bold: true, sz: 10 },
+      alignment: { horizontal: "center", vertical: "center", wrapText: true },
+      border: borderAll,
+      fill: { fgColor: { rgb: "D9E1F2" } }  // Light blue header
+    };
+    const subHeaderStyle = {
+      font: { bold: true, sz: 9, color: { rgb: "0000FF" } },
+      alignment: { horizontal: "center", vertical: "center", wrapText: true },
+      border: borderAll,
+      fill: { fgColor: { rgb: "E2EFDA" } }  // Light green sub-header
+    };
+    const dataStyle = {
+      font: { sz: 10 },
+      alignment: { horizontal: "center", vertical: "center" },
+      border: borderAll
+    };
+    const dataStyleLeft = {
+      font: { sz: 10 },
+      alignment: { horizontal: "left", vertical: "center" },
+      border: borderAll
+    };
+
+    // Helper to set cell style
+    const setStyle = (ref, style) => {
+      if (!ws[ref]) ws[ref] = { v: '', t: 's' };
+      ws[ref].s = style;
+    };
+
+    // Title rows
+    setStyle('C1', titleStyle);
+    setStyle('C2', schoolStyle);
+    setStyle('B3', bangDiemStyle);
+    setStyle('E4', khoiLopStyle);
+
+    // Header row 6 (index 5) - all columns
+    const allCols = 'ABCDEFGHIJKLMNOP'.split('');
+    allCols.forEach(c => setStyle(`${c}6`, headerCellStyle));
+
+    // Header row 7 (index 6) - sub headers
+    allCols.forEach(c => setStyle(`${c}7`, subHeaderStyle));
+
+    // Data rows styling
+    const dataRowCount = filteredStudents.length > 0 ? filteredStudents.length : EMPTY_ROWS;
+    const dataStartRow = 8; // Row 8 in Excel (index 7)
+    for (let r = dataStartRow; r < dataStartRow + dataRowCount; r++) {
+      allCols.forEach((c, ci) => {
+        // Họ đệm column (C) left-aligned
+        if (ci === 2) {
+          setStyle(`${c}${r}`, dataStyleLeft);
+        } else {
+          setStyle(`${c}${r}`, dataStyle);
+        }
+      });
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // EXPORT
+    // ══════════════════════════════════════════════════════════
+    const wb = XLSX.utils.book_new();
+    const sheetName = `${subject.toLowerCase().replace(/\s+/g, '_')} ${selectedClass.toLowerCase()}`;
+    XLSX.utils.book_append_sheet(wb, ws, sheetName.substring(0, 31));
+    XLSX.writeFile(wb, `so_diem_chi_tiet_${selectedClass}_${subject}_HK${semesterNum}.xlsx`);
+  };
+
+  const handleImportExcel = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const data = await file.arrayBuffer();
+      const wb = XLSX.read(data);
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      
+      // Parse metadata from B3: "BẢNG ĐIỂM CHI TIẾT  MÔN [SUBJECT]  HỌC KỲ [NUM]  NĂM HỌC [YEAR]"
+      let excelSubject = subject;
+      let excelYear = academicYear;
+      let excelSemester = semester;
+      
+      const b3Val = ws['B3'] ? String(ws['B3'].v) : '';
+      if (b3Val) {
+        const monMatch = b3Val.match(/MÔN\s+(.+?)\s+HỌC KỲ/i);
+        const hkMatch = b3Val.match(/HỌC KỲ\s+(\d+)/i);
+        const namMatch = b3Val.match(/NĂM HỌC\s+(.+)$/i);
+        if (monMatch) excelSubject = monMatch[1].trim();
+        if (hkMatch) excelSemester = `Học kỳ ${hkMatch[1]}`;
+        if (namMatch) excelYear = namMatch[1].trim();
+      }
+
+      // New layout: data starts at row 8 (0-indexed: 7)
+      // Columns: A=STT, B=Mã học sinh, C=Họ đệm, D=Tên, E=Ngày sinh
+      //          F=Tx1, G=Tx2, H=Tx3, I=Tx4, J=Tx5, K=Tx6
+      //          L=ĐĐG GCK, M=ĐTB mhk
+      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+      const payload = [];
+      
+      for (let r = 7; r <= range.e.r; r++) { // row 8 onwards (0-indexed 7)
+        const getVal = (c) => {
+          const cell = ws[XLSX.utils.encode_cell({ r, c })];
+          return cell ? cell.v : null;
+        };
+        
+        const studentId = getVal(1); // B: Mã học sinh
+        if (!studentId) continue;
+        
+        payload.push({
+          student_id: String(studentId).trim(),
+          subject: excelSubject,
+          semester: excelSemester,
+          academic_year: excelYear,
+          tx1: getVal(5) || null,   // F: Tx1
+          tx2: getVal(6) || null,   // G: Tx2
+          tx3: getVal(7) || null,   // H: Tx3
+          tx4: getVal(8) || null,   // I: Tx4
+          gk: getVal(9) || null,    // J: GK (Giữa kỳ)
+          ck: getVal(10) || null,   // K: CK (Cuối kỳ)
+        });
+      }
+
+      if (payload.length === 0) throw new Error("Không có dữ liệu điểm hợp lệ trong file Excel.");
+
+      const resp = await axios.post(`${API}/api/grades/bulk`, { grades: payload }, { headers });
+      await showMessageBox({ type: 'alert', title: 'Thành công', desc: resp.data.message });
+      refresh();
+    } catch (err) {
+      await showMessageBox({ type: 'alert', title: 'Lỗi import', desc: err.message || 'Lỗi khi đọc file Excel, vui lòng kiểm tra lại định dạng.' });
+    } finally {
+      e.target.value = '';
+    }
+  };
+
   return (
     <div className="card" style={{ overflow: 'hidden' }}>
       {/* Thanh công cụ / Khung Filter */}
@@ -643,27 +959,32 @@ function GradeTab({ grades, students, catClasses, catSubjects, catAcademicYears 
             {subjects.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span style={{ fontWeight: 600, color: '#334155' }}>Học kỳ:</span>
-          <select className="input" style={{ width: '8rem', padding: '0.2rem 0.5rem', height: '2rem' }} value={semester} onChange={e => setSemester(e.target.value)}>
-            {[1, 2, 3, 4, 5, 6, 7, 8].map(num => (
-              <option key={num} value={`Học kỳ ${num}`}>Học kỳ {num}</option>
-            ))}
-          </select>
-        </div>
+
       </div>
 
-      <div className="p-6 border-b border-slate-100 bg-white">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-2 h-6 bg-rose-500 rounded-full" />
-          <h3 className="font-black text-slate-900 uppercase tracking-tight">
-            Sổ điểm chi tiết {selectedClass ? `— Lớp ${selectedClass}` : ''} {subject ? `— Môn ${subject}` : ''}
-          </h3>
+      <div className="p-6 border-b border-slate-100 bg-white flex flex-wrap justify-between items-center gap-4">
+        <div>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-2 h-6 bg-rose-500 rounded-full" />
+            <h3 className="font-black text-slate-900 uppercase tracking-tight">
+              Sổ điểm chi tiết {selectedClass ? `— Lớp ${selectedClass}` : ''} {subject ? `— Môn ${subject}` : ''}
+            </h3>
+          </div>
+          <p className="text-slate-400 text-xs font-medium">
+            Hệ thống ghi nhận điểm trực tiếp vào cơ sở dữ liệu và đồng bộ hóa với sổ cái Blockchain. 
+            <span className="text-indigo-600 ml-1">Điểm trung bình được tính tự động theo trọng số quy định.</span>
+          </p>
         </div>
-        <p className="text-slate-400 text-xs font-medium">
-          Hệ thống ghi nhận điểm trực tiếp vào cơ sở dữ liệu và đồng bộ hóa với sổ cái Blockchain. 
-          <span className="text-indigo-600 ml-1">Điểm trung bình được tính tự động theo trọng số quy định.</span>
-        </p>
+        
+        <div className="flex items-center gap-2">
+          <button onClick={handleExportExcel} className="btn-sm btn-ghost border border-slate-200">
+            <Download size={14} /> Xuất Excel
+          </button>
+          <input type="file" ref={fileInputRef} onChange={handleImportExcel} accept=".xlsx, .xls" className="hidden" />
+          <button onClick={() => fileInputRef.current?.click()} className="btn-sm bg-emerald-600 hover:bg-emerald-700 text-white shadow-md border-none">
+            <FileUp size={14} /> Nhập điểm từ Excel
+          </button>
+        </div>
       </div>
 
       <div className="overflow-x-auto scrollbar-thin">
@@ -898,29 +1219,41 @@ function CatalogTab({ headers, refresh, academicYears = [], majors = [], batches
   }, [refresh]);
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(20rem, 1fr))', gap: '1.5rem' }}>
-      <CatalogPanel title="Quản lý Lớp" endpoint="/api/classes" data={classes} field="class_name" headers={headers} refresh={refresh} />
-      <CatalogPanel title="Quản lý Môn" endpoint="/api/subjects" data={subjects} field="subject_name" headers={headers} refresh={refresh} />
-      <CatalogPanel title="Quản lý Năm học" endpoint="/api/academic-years" data={academicYears} field="year_name" headers={headers} refresh={refresh} />
-      <CatalogPanel title="Quản lý Ngành học" endpoint="/api/majors" data={majors} field="major_name" headers={headers} refresh={refresh} />
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+      <CatalogPanel title="Quản lý Lớp" endpoint="/api/classes" data={classes} field="class_name" headers={headers} refresh={refresh} icon={<Users size={20} />} color="blue" />
+      <CatalogPanel title="Quản lý Môn" endpoint="/api/subjects" data={subjects} field="subject_name" headers={headers} refresh={refresh} icon={<BookOpen size={20} />} color="indigo" />
+      <CatalogPanel title="Năm học" endpoint="/api/academic-years" data={academicYears} field="year_name" headers={headers} refresh={refresh} icon={<Database size={20} />} color="emerald" />
+      <CatalogPanel title="Ngành học" endpoint="/api/majors" data={majors} field="major_name" headers={headers} refresh={refresh} icon={<Database size={20} />} color="violet" />
       
-      {/* Khóa học Panel với các trường mở rộng */}
-      <div className="card" style={{ padding: '1.5rem' }}>
-        <h3 style={{ fontWeight: 700, marginBottom: '1rem' }}>Quản lý Khóa học</h3>
+      {/* Khóa học Panel */}
+      <div className="bg-white rounded-2xl border border-slate-100/80 shadow-[0_4px_24px_-8px_rgba(0,0,0,0.05)] flex flex-col p-6 h-full transition-shadow hover:shadow-[0_8px_30px_-8px_rgba(0,0,0,0.08)]">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center shadow-sm">
+            <BookOpen size={20} />
+          </div>
+          <h3 className="font-bold text-slate-800 text-lg tracking-tight">Khóa học</h3>
+        </div>
+        
         <AddBatchForm headers={headers} refresh={refresh} />
-        <div style={{ marginTop: '1rem' }}>
-          {batches.map(b => (
-            <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem', borderBottom: '1px solid #f1f5f9' }}>
-              <div>
-                <span style={{ fontWeight: 600 }}>{b.batch_name}</span>
-                <span style={{ fontSize: '0.75rem', color: '#64748b', marginLeft: '0.5rem' }}>({b.start_year} - {b.end_year})</span>
+        
+        <div className="flex-1 overflow-y-auto pr-2 mt-6 space-y-2 scrollbar-thin" style={{ maxHeight: '14rem' }}>
+          {batches.length === 0 ? (
+            <div className="h-full flex items-center justify-center text-slate-400 text-sm italic">Chưa có dữ liệu</div>
+          ) : batches.map(b => (
+            <div key={b.id} className="group flex items-center justify-between p-3.5 rounded-xl border border-transparent hover:border-slate-200 hover:bg-slate-50 hover:shadow-sm transition-all duration-200">
+              <div className="flex flex-col">
+                <span className="font-bold text-slate-700 text-[15px]">{b.batch_name}</span>
+                <span className="text-xs font-medium text-slate-400">Niên khóa: {b.start_year} - {b.end_year}</span>
               </div>
               <button onClick={async () => {
-                if (confirm('Xóa khóa này?')) {
-                   await axios.delete(`${API}/api/batches/${b.id}`, { headers });
-                   refresh();
+                const ok = await showMessageBox({ type: 'confirm', title: 'Xác nhận xóa', desc: 'Bạn có chắc chắn muốn xóa khóa học này?' });
+                if (ok) {
+                   try { await axios.delete(`${API}/api/batches/${b.id}`, { headers }); refresh(); }
+                   catch (e) { await showMessageBox({ type: 'alert', title: 'Lỗi', desc: e.response?.data?.error || 'Lỗi xóa' }); }
                 }
-              }} className="btn-sm" style={{ color: '#ef4444', background: '#fef2f2' }}><Trash2 size={13} /></button>
+              }} className="p-2 text-slate-300 hover:text-rose-500 hover:bg-white rounded-lg transition-all opacity-0 group-hover:opacity-100 shadow-sm border border-transparent hover:border-rose-100">
+                <Trash2 size={14} />
+              </button>
             </div>
           ))}
         </div>
@@ -934,20 +1267,25 @@ function CatalogTab({ headers, refresh, academicYears = [], majors = [], batches
 function AddBatchForm({ headers, refresh }) {
   const [val, setVal] = useState({ name: '', start: '', end: '' });
   const handle = async () => {
-    if (!val.name || !val.start || !val.end) return;
+    if (!val.name || !val.start || !val.end) {
+      await showMessageBox({ type: 'alert', title: 'Lỗi', desc: 'Vui lòng điền đầy đủ thông tin.' });
+      return;
+    }
     try {
       await axios.post(`${API}/api/batches`, { batch_name: val.name, start_year: val.start, end_year: val.end }, { headers });
       setVal({ name: '', start: '', end: '' }); refresh();
-    } catch (e) { alert(e.response?.data?.error || 'Lỗi'); }
+    } catch (e) { await showMessageBox({ type: 'alert', title: 'Lỗi', desc: e.response?.data?.error || 'Lỗi thêm' }); }
   };
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-      <input className="input" value={val.name} onChange={e => setVal({...val, name: e.target.value})} placeholder="Tên khóa (K21...)" />
-      <div style={{ display: 'flex', gap: '0.5rem' }}>
-        <input className="input" type="number" value={val.start} onChange={e => setVal({...val, start: e.target.value})} placeholder="Bắt đầu" />
-        <input className="input" type="number" value={val.end} onChange={e => setVal({...val, end: e.target.value})} placeholder="Kết thúc" />
+    <div className="flex flex-col gap-3">
+      <input className="input h-11 w-full bg-slate-50 focus:bg-white transition-colors" value={val.name} onChange={e => setVal({...val, name: e.target.value})} placeholder="Tên khóa (Ví dụ: K49)" />
+      <div className="grid grid-cols-2 gap-3">
+        <input className="input h-11 w-full bg-slate-50 focus:bg-white transition-colors" type="number" value={val.start} onChange={e => setVal({...val, start: e.target.value})} placeholder="Bắt đầu" />
+        <input className="input h-11 w-full bg-slate-50 focus:bg-white transition-colors" type="number" value={val.end} onChange={e => setVal({...val, end: e.target.value})} placeholder="Kết thúc" />
       </div>
-      <button onClick={handle} className="btn-md btn-primary"><Plus size={14} /> Thêm khóa</button>
+      <button onClick={handle} className="btn-md h-11 bg-slate-900 hover:bg-slate-800 text-white shadow-md justify-center mt-2 border-none">
+        <Plus size={15} /> Thêm khóa học
+      </button>
     </div>
   );
 }
@@ -957,70 +1295,106 @@ function AccountPanel({ headers }) {
   const [password, setPassword] = useState('');
   
   const handleAdd = async () => {
-    if (!username || !password) return;
+    if (!username || !password) {
+      await showMessageBox({ type: 'alert', title: 'Lỗi', desc: 'Nhập tên đăng nhập và mật khẩu.' });
+      return;
+    }
     try {
       await axios.post(`${API}/api/users/teacher`, { username, password }, { headers });
       setUsername(''); setPassword('');
-      await showMessageBox({ type: 'alert', title: 'Thành công', desc: 'Đã tạo tài khoản giáo viên thành công.' });
+      await showMessageBox({ type: 'alert', title: 'Thành công', desc: 'Tạo tài khoản giáo viên thành công.' });
     } catch (e) {
-      await showMessageBox({ type: 'alert', title: 'Lỗi', desc: e.response?.data?.error || 'Lỗi tạo tài khoản' });
+      await showMessageBox({ type: 'alert', title: 'Lỗi', desc: e.response?.data?.error || 'Lỗi tạo' });
     }
   };
 
   return (
-    <div className="card" style={{ padding: '1.5rem' }}>
-      <h3 style={{ fontWeight: 700, marginBottom: '1rem' }}>Cấp Tài khoản Giáo viên</h3>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-        <input className="input" value={username} onChange={e => setUsername(e.target.value)} placeholder="Tên đăng nhập..." />
-        <input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Mật khẩu..." />
-        <button onClick={handleAdd} className="btn-md btn-primary" style={{ alignSelf: 'flex-start' }}><Plus size={14} /> Tạo tài khoản</button>
+    <div className="bg-white rounded-2xl border border-slate-100/80 shadow-[0_4px_24px_-8px_rgba(0,0,0,0.05)] flex flex-col p-6 h-full transition-shadow hover:shadow-[0_8px_30px_-8px_rgba(0,0,0,0.08)] relative overflow-hidden">
+      <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
+        <ShieldCheck size={120} />
+      </div>
+      
+      <div className="flex items-center gap-3 mb-6 relative z-10">
+        <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shadow-sm">
+          <ShieldCheck size={20} />
+        </div>
+        <h3 className="font-bold text-slate-800 text-lg tracking-tight">Tài khoản Giáo viên</h3>
+      </div>
+      
+      <div className="flex flex-col gap-3 relative z-10">
+        <input className="input h-11 w-full bg-slate-50 focus:bg-white transition-colors" value={username} onChange={e => setUsername(e.target.value)} placeholder="Tên đăng nhập" />
+        <input className="input h-11 w-full bg-slate-50 focus:bg-white transition-colors" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Mật khẩu" />
+        <button onClick={handleAdd} className="btn-md h-11 bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/20 justify-center mt-2 border-none">
+          <ShieldCheck size={15} /> Cấp quyền hệ thống
+        </button>
+      </div>
+      
+      <div className="mt-auto pt-8 relative z-10">
+        <div className="p-3 bg-rose-50/50 rounded-xl border border-rose-100/50 flex items-start gap-2">
+          <AlertCircle size={14} className="text-rose-500 mt-0.5 flex-shrink-0" />
+          <p className="text-xs text-slate-500 leading-relaxed font-medium">Tài khoản này chỉ có quyền thao tác với điểm và chứng chỉ, không có quyền xóa hay truy cập cài đặt.</p>
+        </div>
       </div>
     </div>
   );
 }
 
-function CatalogPanel({ title, endpoint, data, field, headers, refresh }) {
+function CatalogPanel({ title, endpoint, data, field, headers, refresh, icon, color = 'blue' }) {
   const [val, setVal] = useState('');
   const handleAdd = async () => {
     if (!val.trim()) return;
     try {
       await axios.post(`${API}${endpoint}`, { [field]: val }, { headers });
       setVal(''); refresh();
-    } catch (e) { await showMessageBox({ type: 'alert', title: 'Lỗi', desc: e.response?.data?.error || 'Lỗi thêm mới' }); }
+    } catch (e) { await showMessageBox({ type: 'alert', title: 'Lỗi', desc: e.response?.data?.error || 'Lỗi thêm' }); }
   };
   const handleDelete = async (id) => {
-    const ok = await showMessageBox({ type: 'confirm', title: 'Xác nhận xóa', desc: 'Bạn có chắc chắn muốn xóa mục này?' });
+    const ok = await showMessageBox({ type: 'confirm', title: 'Xác nhận xóa', desc: 'Bạn có chắc muốn xóa? Dữ liệu liên đới có thể bị mất.' });
     if (ok) {
-      try {
-        await axios.delete(`${API}${endpoint}/${id}`, { headers });
-        refresh();
-      } catch (e) { await showMessageBox({ type: 'alert', title: 'Lỗi', desc: e.response?.data?.error || 'Lỗi xóa' }); }
+      try { await axios.delete(`${API}${endpoint}/${id}`, { headers }); refresh(); }
+      catch (e) { await showMessageBox({ type: 'alert', title: 'Lỗi', desc: e.response?.data?.error || 'Lỗi xóa' }); }
     }
   };
   const handleEdit = async (id, oldVal) => {
     const newVal = await showMessageBox({ type: 'prompt', title: 'Cập nhật', desc: 'Nhập tên mới:', defaultValue: oldVal });
     if (newVal && newVal !== oldVal) {
-      try {
-        await axios.put(`${API}${endpoint}/${id}`, { [field]: newVal }, { headers });
-        refresh();
-      } catch (e) { await showMessageBox({ type: 'alert', title: 'Lỗi', desc: e.response?.data?.error || 'Lỗi cập nhật' }); }
+      try { await axios.put(`${API}${endpoint}/${id}`, { [field]: newVal }, { headers }); refresh(); }
+      catch (e) { await showMessageBox({ type: 'alert', title: 'Lỗi', desc: e.response?.data?.error || 'Lỗi cập nhật' }); }
     }
   };
 
+  const colorStyles = {
+    blue: 'bg-blue-50 text-blue-600',
+    indigo: 'bg-indigo-50 text-indigo-600',
+    emerald: 'bg-emerald-50 text-emerald-600',
+    violet: 'bg-violet-50 text-violet-600',
+  };
+
   return (
-    <div className="card" style={{ padding: '1.5rem' }}>
-      <h3 style={{ fontWeight: 700, marginBottom: '1rem' }}>{title}</h3>
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-        <input className="input" style={{ flex: 1 }} value={val} onChange={e => setVal(e.target.value)} placeholder="Tên..." />
-        <button onClick={handleAdd} className="btn-md btn-primary"><Plus size={14} /> Thêm</button>
+    <div className="bg-white rounded-2xl border border-slate-100/80 shadow-[0_4px_24px_-8px_rgba(0,0,0,0.05)] flex flex-col p-6 h-full transition-shadow hover:shadow-[0_8px_30px_-8px_rgba(0,0,0,0.08)]">
+      <div className="flex items-center gap-3 mb-6">
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${colorStyles[color] || colorStyles.blue}`}>
+          {icon}
+        </div>
+        <h3 className="font-bold text-slate-800 text-lg tracking-tight">{title}</h3>
       </div>
-      <div>
-        {data.map(item => (
-          <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem', borderBottom: '1px solid #f1f5f9' }}>
-            <span style={{ fontWeight: 600 }}>{item[field]}</span>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button onClick={() => handleEdit(item.id, item[field])} className="btn-sm btn-secondary"><Pencil size={13} /></button>
-              <button onClick={() => handleDelete(item.id)} className="btn-sm" style={{ color: '#ef4444', background: '#fef2f2' }}><Trash2 size={13} /></button>
+      
+      <div className="flex gap-2 mb-6">
+        <input className="input h-11 flex-1 bg-slate-50 focus:bg-white transition-colors shadow-inner shadow-slate-100/50" value={val} onChange={e => setVal(e.target.value)} placeholder="Nhập tên..." onKeyDown={e => e.key === 'Enter' && handleAdd()} />
+        <button onClick={handleAdd} className="btn-md h-11 bg-slate-900 hover:bg-slate-800 text-white shadow-md border-none whitespace-nowrap px-5">
+          <Plus size={15} /> Thêm
+        </button>
+      </div>
+      
+      <div className="flex-1 overflow-y-auto pr-2 space-y-2 scrollbar-thin" style={{ maxHeight: '14rem' }}>
+        {data.length === 0 ? (
+          <div className="h-full flex items-center justify-center text-slate-400 text-sm italic">Chưa có dữ liệu</div>
+        ) : data.map(item => (
+          <div key={item.id} className="group flex items-center justify-between p-3.5 rounded-xl border border-transparent hover:border-slate-200 hover:bg-slate-50 hover:shadow-sm transition-all duration-200">
+            <span className="font-bold text-slate-700 text-[15px]">{item[field]}</span>
+            <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button onClick={() => handleEdit(item.id, item[field])} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-white shadow-sm border border-transparent hover:border-indigo-100 rounded-lg transition-all" title="Sửa"><Pencil size={14} /></button>
+              <button onClick={() => handleDelete(item.id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-white shadow-sm border border-transparent hover:border-rose-100 rounded-lg transition-all" title="Xóa"><Trash2 size={14} /></button>
             </div>
           </div>
         ))}

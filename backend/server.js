@@ -417,6 +417,43 @@ app.post('/api/grades', authenticate, requireStaff, async (req, res) => {
     res.json({ message: "Grade added/updated and saved to Blockchain", hash, calculatedScore: score });
 });
 
+app.post('/api/grades/bulk', authenticate, requireStaff, async (req, res) => {
+    const { grades } = req.body;
+    if (!Array.isArray(grades)) return res.status(400).json({ error: "Invalid data format" });
+
+    let imported = 0;
+    let errors = [];
+
+    await db.run('BEGIN TRANSACTION');
+    try {
+        for (const g of grades) {
+            try {
+                const score = calculateGPA(g);
+                const dataString = getGradeDataString(g);
+                const hash = await bcm.saveHash(dataString);
+                const signature = KeyService.signData(dataString);
+
+                const existing = await db.get('SELECT id FROM grades WHERE student_id = ? AND subject = ? AND semester = ? AND academic_year = ?', [g.student_id, g.subject, g.semester, g.academic_year]);
+                if (existing) {
+                    await db.run('UPDATE grades SET score = ?, hash = ?, signature = ?, tx1 = ?, tx2 = ?, tx3 = ?, tx4 = ?, tx5 = ?, gk = ?, ck = ? WHERE id = ?', 
+                        [score, hash, signature, g.tx1, g.tx2, g.tx3, g.tx4, g.tx5, g.gk, g.ck, existing.id]);
+                } else {
+                    await db.run('INSERT INTO grades (student_id, subject, semester, academic_year, score, hash, signature, tx1, tx2, tx3, tx4, tx5, gk, ck) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
+                        [g.student_id, g.subject, g.semester, g.academic_year, score, hash, signature, g.tx1, g.tx2, g.tx3, g.tx4, g.tx5, g.gk, g.ck]);
+                }
+                imported++;
+            } catch (err) {
+                errors.push(`Lỗi nhập điểm cho SV ${g.student_id}`);
+            }
+        }
+        await db.run('COMMIT');
+        res.json({ message: `Đã lưu ${imported} bản ghi điểm số lên hệ thống và Blockchain`, errors });
+    } catch (err) {
+        await db.run('ROLLBACK');
+        res.status(500).json({ error: "Bulk import failed" });
+    }
+});
+
 // =======================
 // API: CERTIFICATES
 // =======================
