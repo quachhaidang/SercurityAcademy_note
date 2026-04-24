@@ -163,6 +163,7 @@ export default function Lookup() {
       "grades": result.grades.map(g => ({
         "subject": g.subject,
         "semester": g.semester,
+        "academic_year": g.academic_year,
         "scores": {
           "tx1": g.tx1 ?? null, "tx2": g.tx2 ?? null, "tx3": g.tx3 ?? null,
           "tx4": g.tx4 ?? null, "tx5": g.tx5 ?? null,
@@ -615,6 +616,8 @@ export default function Lookup() {
         )}
       </AnimatePresence>
 
+
+
       {/* ── Features Grid ── */}
       <section id="features" className="landing-section bg-white">
         <div className="max-w-6xl mx-auto px-6">
@@ -746,9 +749,11 @@ export default function Lookup() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
              {result && result.grades && (() => {
                const gBySem = result.grades.reduce((acc, g) => {
-                 const s = g.semester || 'Khác';
-                 if (!acc[s]) acc[s] = [];
-                 acc[s].push(g);
+                 const s = g.semester || 'Học kỳ';
+                 const y = g.academic_year || 'N/A';
+                 const key = `[${y}] ${s}`;
+                 if (!acc[key]) acc[key] = [];
+                 acc[key].push(g);
                  return acc;
                }, {});
                
@@ -942,4 +947,3 @@ function TechItem({ title, desc }) {
     </div>
   );
 }
-

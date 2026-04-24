@@ -18,6 +18,7 @@ export default function Dashboard({ userToken, userRole }) {
   const [certs, setCerts] = useState([]);
   const [catClasses, setCatClasses] = useState([]);
   const [catSubjects, setCatSubjects] = useState([]);
+  const [catAcademicYears, setCatAcademicYears] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const headers = {
@@ -34,12 +35,14 @@ export default function Dashboard({ userToken, userRole }) {
         axios.get(`${API}/api/certificates`, { headers }),
         axios.get(`${API}/api/classes`, { headers }),
         axios.get(`${API}/api/subjects`, { headers }),
+        axios.get(`${API}/api/academic-years`, { headers }),
       ]);
       if (resp[0].status === 'fulfilled') setStudents(resp[0].value.data);
       if (resp[1].status === 'fulfilled') setGrades(resp[1].value.data);
       if (resp[2].status === 'fulfilled') setCerts(resp[2].value.data);
       if (resp[3].status === 'fulfilled') setCatClasses(resp[3].value.data.map(c => c.class_name));
       if (resp[4].status === 'fulfilled') setCatSubjects(resp[4].value.data.map(s => s.subject_name));
+      if (resp[5].status === 'fulfilled') setCatAcademicYears(resp[5].value.data);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
@@ -90,9 +93,9 @@ export default function Dashboard({ userToken, userRole }) {
         ) : (
           <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
             {tab === 'students' && <StudentTab students={students} catClasses={catClasses} headers={headers} refresh={fetchAll} />}
-            {tab === 'grades' && <GradeTab grades={grades} students={students} catClasses={catClasses} catSubjects={catSubjects} headers={headers} refresh={fetchAll} />}
+            {tab === 'grades' && <GradeTab grades={grades} students={students} catClasses={catClasses} catSubjects={catSubjects} catAcademicYears={catAcademicYears} headers={headers} refresh={fetchAll} />}
             {tab === 'certs' && <CertTab certs={certs} headers={headers} refresh={fetchAll} />}
-            {tab === 'catalog' && <CatalogTab headers={headers} refresh={fetchAll} />}
+            {tab === 'catalog' && <CatalogTab headers={headers} refresh={fetchAll} academicYears={catAcademicYears} />}
           </motion.div>
         )}
       </AnimatePresence>
@@ -513,19 +516,29 @@ function StudentTab({ students, catClasses = [], headers, refresh }) {
 }
 
 /* ─────────────────────────────────────── GRADE TAB ── */
-function GradeTab({ grades, students, catClasses, catSubjects, headers, refresh }) {
+function GradeTab({ grades, students, catClasses, catSubjects, catAcademicYears = [], headers, refresh }) {
   const classes = catClasses && catClasses.length > 0 ? catClasses : [];
   const subjects = catSubjects && catSubjects.length > 0 ? catSubjects : [];
 
+  const semesters = ['Học kỳ 1', 'Học kỳ 2', 'Học kỳ 3', 'Học kỳ 4'];
   const [selectedClass, setSelectedClass] = useState(classes[0] || '');
   const [subject, setSubject] = useState(subjects[0] || '');
-  const [semester, setSemester] = useState('Học kỳ 2');
+  const [semester, setSemester] = useState(semesters[0]);
+  const [academicYear, setAcademicYear] = useState('');
   const [localGrades, setLocalGrades] = useState({});
   const [savingId, setSavingId] = useState(null);
 
+  const academicYears = catAcademicYears || [];
+  
+  useEffect(() => {
+    if (academicYears.length > 0 && !academicYear) {
+      setAcademicYear(academicYears[0].year_name);
+    }
+  }, [academicYears]);
+
   useEffect(() => {
     setLocalGrades({});
-  }, [selectedClass, subject, semester]);
+  }, [selectedClass, subject, semester, academicYear]);
 
   const filteredStudents = students.filter(s => s.class_name === selectedClass);
 
@@ -540,7 +553,7 @@ function GradeTab({ grades, students, catClasses, catSubjects, headers, refresh 
   };
 
   const getMergedGrade = (studentId) => {
-    const savedGrade = grades.find(g => g.student_id === studentId && g.subject === subject && g.semester === semester);
+    const savedGrade = grades.find(g => g.student_id === studentId && g.subject === subject && g.semester === semester && g.academic_year === academicYear);
     return { ...(savedGrade || {}), ...(localGrades[studentId] || {}) };
   };
 
@@ -569,7 +582,7 @@ function GradeTab({ grades, students, catClasses, catSubjects, headers, refresh 
     const g = getMergedGrade(studentId);
     try {
       await axios.post(`${API}/api/grades`, { 
-        student_id: studentId, subject, semester, score,
+        student_id: studentId, subject, semester, academic_year: academicYear, score,
         tx1: g.tx1, tx2: g.tx2, tx3: g.tx3, tx4: g.tx4, tx5: g.tx5, gk: g.gk, ck: g.ck
       }, { headers });
       refresh();
@@ -588,6 +601,19 @@ function GradeTab({ grades, students, catClasses, catSubjects, headers, refresh 
           <span style={{ fontWeight: 600, color: '#334155' }}>Lớp:</span>
           <select className="input" style={{ width: '6rem', padding: '0.2rem 0.5rem', height: '2rem' }} value={selectedClass} onChange={e => setSelectedClass(e.target.value)}>
             {classes.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{ fontWeight: 600, color: '#334155' }}>Năm học:</span>
+          <select className="input" style={{ width: '8.5rem', padding: '0.2rem 0.5rem', height: '2rem' }} value={academicYear} onChange={e => setAcademicYear(e.target.value)}>
+            {academicYears.map(y => <option key={y.id} value={y.year_name}>{y.year_name}</option>)}
+            {academicYears.length === 0 && <option value="">Chưa có năm học</option>}
+          </select>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{ fontWeight: 600, color: '#334155' }}>Học kỳ:</span>
+          <select className="input" style={{ width: '7.5rem', padding: '0.2rem 0.5rem', height: '2rem' }} value={semester} onChange={e => setSemester(e.target.value)}>
+            {semesters.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -641,7 +667,7 @@ function GradeTab({ grades, students, catClasses, catSubjects, headers, refresh 
             {filteredStudents.length === 0 ? (
               <tr><td colSpan="13" className="py-20 text-slate-400 bg-slate-50/50 italic">Không có sinh viên nào trong lớp {selectedClass}.</td></tr>
             ) : filteredStudents.map((s, i) => {
-              const savedGrade = grades.find(g => g.student_id === s.student_id && g.subject === subject && g.semester === semester);
+              const savedGrade = grades.find(g => g.student_id === s.student_id && g.subject === subject && g.semester === semester && g.academic_year === academicYear);
               const avg = getComputedAvg(s.student_id);
               const gState = { ...(savedGrade || {}), ...(localGrades[s.student_id] || {}) };
               const isSaving = savingId === s.student_id;
@@ -841,7 +867,7 @@ function CertRow({ label, value }) {
 }
 
 /* ─────────────────────────────────────── CATALOG TAB ── */
-function CatalogTab({ headers, refresh }) {
+function CatalogTab({ headers, refresh, academicYears = [] }) {
   const [classes, setClasses] = useState([]);
   const [subjects, setSubjects] = useState([]);
 
@@ -851,9 +877,10 @@ function CatalogTab({ headers, refresh }) {
   }, [refresh]);
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(20rem, 1fr))', gap: '1.5rem' }}>
       <CatalogPanel title="Quản lý Lớp" endpoint="/api/classes" data={classes} field="class_name" headers={headers} refresh={refresh} />
       <CatalogPanel title="Quản lý Môn" endpoint="/api/subjects" data={subjects} field="subject_name" headers={headers} refresh={refresh} />
+      <CatalogPanel title="Quản lý Năm học" endpoint="/api/academic-years" data={academicYears} field="year_name" headers={headers} refresh={refresh} />
       <AccountPanel headers={headers} />
     </div>
   );

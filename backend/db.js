@@ -83,6 +83,11 @@ async function initDb() {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             subject_name TEXT UNIQUE
         );
+
+        CREATE TABLE IF NOT EXISTS academic_years (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            year_name TEXT UNIQUE
+        );
     `);
 
     // Removed initial demo seeding as requested
@@ -90,6 +95,7 @@ async function initDb() {
     // Schema updates for Authenticity pillar (RSA Signatures)
     try { await db.exec("ALTER TABLE grades ADD COLUMN signature TEXT"); } catch (e) {}
     try { await db.exec("ALTER TABLE grades ADD COLUMN semester TEXT"); } catch (e) {}
+    try { await db.exec("ALTER TABLE grades ADD COLUMN academic_year TEXT"); } catch (e) {}
     try { await db.exec("ALTER TABLE certificates ADD COLUMN signature TEXT"); } catch (e) {}
 
 

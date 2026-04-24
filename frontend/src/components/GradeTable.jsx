@@ -27,12 +27,14 @@ export default function GradeTable({
   const [activeTab, setActiveTab] = useState('summary');
   const [localEdits, setLocalEdits] = useState({});
 
-  // Group grades by semester
+  // Group grades by academic year and semester
   const grouped = useMemo(() => {
     return (grades || []).reduce((acc, g) => {
-      const sem = g?.semester || 'Khác';
-      if (!acc[sem]) acc[sem] = [];
-      acc[sem].push(g);
+      const year = g?.academic_year || 'N/A';
+      const sem = g?.semester || 'Học kỳ';
+      const key = `[${year}] ${sem}`;
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(g);
       return acc;
     }, {});
   }, [grades]);

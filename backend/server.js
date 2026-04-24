@@ -51,7 +51,8 @@ const getGradeDataString = (g) => {
     const f = (v) => (v != null && v !== '') ? parseFloat(v).toFixed(1) : '';
     const score = calculateGPA(g);
     const sem = g.semester || '';
-    return `${g.student_id}-${g.subject}-${sem}-${f(g.tx1)}-${f(g.tx2)}-${f(g.tx3)}-${f(g.tx4)}-${f(g.tx5)}-${f(g.gk)}-${f(g.ck)}-${score}`;
+    const year = g.academic_year || '';
+    return `${g.student_id}-${g.subject}-${year}-${sem}-${f(g.tx1)}-${f(g.tx2)}-${f(g.tx3)}-${f(g.tx4)}-${f(g.tx5)}-${f(g.gk)}-${f(g.ck)}-${score}`;
 };
 
 // =======================
@@ -377,25 +378,25 @@ app.get('/api/grades', authenticate, async (req, res) => {
 });
 
 app.post('/api/grades', authenticate, requireStaff, async (req, res) => {
-    const { student_id, subject, semester, tx1, tx2, tx3, tx4, tx5, gk, ck } = req.body;
+    const { student_id, subject, semester, academic_year, tx1, tx2, tx3, tx4, tx5, gk, ck } = req.body;
     
     // Auto-calculate score on backend to ensure integrity
     const score = calculateGPA({ tx1, tx2, tx3, tx4, tx5, gk, ck });
     
-    const dataString = getGradeDataString({ student_id, subject, semester, tx1, tx2, tx3, tx4, tx5, gk, ck });
+    const dataString = getGradeDataString({ student_id, subject, semester, academic_year, tx1, tx2, tx3, tx4, tx5, gk, ck });
     
     // Hash and store to Mock Blockchain
     const hash = await bcm.saveHash(dataString);
     const signature = KeyService.signData(dataString);
 
     // Save actual data to traditional database
-    const existing = await db.get('SELECT id FROM grades WHERE student_id = ? AND subject = ? AND semester = ?', [student_id, subject, semester]);
+    const existing = await db.get('SELECT id FROM grades WHERE student_id = ? AND subject = ? AND semester = ? AND academic_year = ?', [student_id, subject, semester, academic_year]);
     if (existing) {
         await db.run('UPDATE grades SET score = ?, hash = ?, signature = ?, tx1 = ?, tx2 = ?, tx3 = ?, tx4 = ?, tx5 = ?, gk = ?, ck = ? WHERE id = ?', 
             [score, hash, signature, tx1, tx2, tx3, tx4, tx5, gk, ck, existing.id]);
     } else {
-        await db.run('INSERT INTO grades (student_id, subject, semester, score, hash, signature, tx1, tx2, tx3, tx4, tx5, gk, ck) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
-            [student_id, subject, semester, score, hash, signature, tx1, tx2, tx3, tx4, tx5, gk, ck]);
+        await db.run('INSERT INTO grades (student_id, subject, semester, academic_year, score, hash, signature, tx1, tx2, tx3, tx4, tx5, gk, ck) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
+            [student_id, subject, semester, academic_year, score, hash, signature, tx1, tx2, tx3, tx4, tx5, gk, ck]);
     }
     
     res.json({ message: "Grade added/updated and saved to Blockchain", hash, calculatedScore: score });
@@ -490,6 +491,27 @@ app.delete('/api/classes/:id', authenticate, requireAdmin, async (req, res) => {
 app.get('/api/subjects', authenticate, async (req, res) => {
     const subjects = await db.all('SELECT * FROM subjects');
     res.json(subjects);
+});
+
+app.get('/api/academic-years', authenticate, async (req, res) => {
+    const years = await db.all('SELECT * FROM academic_years ORDER BY year_name DESC');
+    res.json(years);
+});
+
+app.post('/api/academic-years', authenticate, requireAdmin, async (req, res) => {
+    const { year_name } = req.body;
+    try {
+        await db.run('INSERT INTO academic_years (year_name) VALUES (?)', [year_name]);
+        res.json({ message: "Đã thêm năm học mới" });
+    } catch (err) {
+        res.status(400).json({ error: "Năm học đã tồn tại" });
+    }
+});
+
+app.delete('/api/academic-years/:id', authenticate, requireAdmin, async (req, res) => {
+    const { id } = req.params;
+    await db.run('DELETE FROM academic_years WHERE id = ?', [id]);
+    res.json({ message: "Đã xóa năm học" });
 });
 
 app.post('/api/subjects', authenticate, requireAdmin, async (req, res) => {
