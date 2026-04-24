@@ -1,0 +1,1843 @@
+================================================================================
+BÁO CÁO KIỂM TOÁN KỸ THUẬT CHI TIẾT
+Hệ thống Quản lý Bảng điểm Blockchain - Security Academy
+Ngày: 23 tháng 4 năm 2026
+================================================================================
+
+================================================================================
+I. TỔNG QUAN DỰ ÁN & KIẾN TRÚC HỆ THỐNG
+================================================================================
+
+1.1. MỤC ĐÍCH DỰ ÁN
+
+Dự án xây dựng nền tảng quản lý và xác minh bảng điểm sinh viên sử dụng công nghệ
+Blockchain nhằm:
+
+• Số hóa hoàn toàn quy trình quản lý văn bằng, chứng chỉ học tập
+• Ngăn chặn giả mạo tài liệu thông qua chữ ký số RSA-2048 và hash SHA-256
+• Cho phép bên thứ ba (nhà tuyển dụng, trường đối tác) xác minh độc lập
+  mà không cần liên hệ trung gian
+• Tuân theo tiêu chuẩn MIT Blockcerts cho chứng chỉ số có tính tương tác quốc tế
+
+1.2. CÔNG NGHỆ SỬ DỤNG
+
+Backend:
+- Node.js v20+ với Express.js v5.2.1 (framework HTTP)
+- SQLite3 v6.0.1 làm cơ sở dữ liệu lưu trữ sổ cái
+- crypto-js v4.2.0 cho hashing SHA-256
+- crypto (NodeJS native) cho RSA-2048 public/private key operations
+- jsonwebtoken v9.0.3 cho JWT authentication
+- CORS middleware để xử lý cross-origin requests
+
+Frontend:
+- React 18+ (UI component framework)
+- Vite (build tool, dev server - cấu hình tối ưu)
+- Tailwind CSS v3+ (utility-first CSS framework)
+- Framer Motion (animation library cho UX mịn)
+- html5-qrcode (QR code scanning từ webcam)
+- html2pdf.js (export PDF high-quality)
+- qrcode.react (QR code generation)
+- lucide-react (icon library)
+- axios (HTTP client)
+
+Database:
+- SQLite3 (embedded relational database)
+- 8 bảng chính: users, students, grades, certificates, blockchain_logs, revocations,
+  classes, subjects
+
+1.3. KIẾN TRÚC HỆ THỐNG
+
+Architecture Pattern: Client-Server + Local Blockchain Ledger Node
+
+┌─────────────────────────────────────────────────────────────┐
+│                    React Frontend (Vite)                    │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  • Dashboard Admin (CRUD điểm, sinh viên, thu hồi)   │  │
+│  │  • Public Lookup (tra cứu & xác minh)                │  │
+│  │  • Verifier (kéo thả JSON, QR scanner)               │  │
+│  │  • Blockchain Explorer (xem sổ cái)                  │  │
+│  │  • Login (JWT token management)                      │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────┬──────────────────────┘
+                                       │ HTTP/CORS
+┌─────────────────────────────────────┴──────────────────────┐
+│              Node.js Express Backend (Port 3000)           │
+├──────────────────────────────────────────────────────────────┤
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  Authentication Layer (JWT middleware)               │  │
+│  │  - verify token                                       │  │
+│  │  - check role (admin, teacher, student)               │  │
+│  │  - rate limiting (chưa có)                            │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  API Routes (RESTful endpoints)                       │  │
+│  │  - /api/public/* (no auth)                            │  │
+│  │  - /api/admin/* (admin only)                          │  │
+│  │  - /api/students, /api/grades, /api/certificates     │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  Business Logic Layer (Services)                      │  │
+│  │  - BlockchainService: Hash verification, revocation  │  │
+│  │  - KeyService: RSA signing/verification              │  │
+│  │  - HashService: SHA-256 hashing                       │  │
+│  └──────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────┬───────────────────────┘
+                                       │ SQL Queries
+┌─────────────────────────────────────┴───────────────────────┐
+│                    SQLite Database                           │
+│  ┌─────────┬──────────┬────────┬──────────────┐              │
+│  │ users   │ students │ grades │ certificates │              │
+│  └─────────┴──────────┴────────┴──────────────┘              │
+│  ┌──────────────────┬──────────────┬──────────┐              │
+│  │ blockchain_logs  │ revocations  │ classes  │              │
+│  └──────────────────┴──────────────┴──────────┘              │
+└──────────────────────────────────────────────────────────────┘
+
+1.4. LUỒNG DỮ LIỆU (Data Flow)
+
+Step 1 (Admin Input):
+  Admin nhập điểm số cho sinh viên
+  → Request: POST /api/grades {student_id, subject, semester, tx1, tx2, ..., ck}
+
+Step 2 (Backend Processing):
+  • Tính toán GPA theo công thức: (tx1+tx2+tx3+tx4+tx5)/5*0.4 + gk*0.2 + ck*0.4
+  • Tạo chuỗi dữ liệu: "${student_id}-${subject}-${semester}-${tx1}-...-${ck}"
+  • Hash chuỗi bằng SHA-256: hash = SHA256(dataString)
+  • Ký hash bằng private key RSA: signature = RSA_SIGN(dataString)
+  • Lưu hash vào blockchain_logs (immutable ledger)
+  • Lưu bản ghi vào grades table kèm hash, signature, GPA
+
+Step 3 (Data Storage):
+  SQLite DB giữ: {id, student_id, subject, score, hash, signature, tx1-tx5, gk, ck}
+  Blockchain log giữ: {id, data_hash, timestamp}
+
+Step 4 (Student Export):
+  Sinh viên truy cập /api/public/lookup/:student_id
+  → Nhận JSON payload chứa tất cả scores + verification fields
+  → Export dưới dạng Blockcert JSON hoặc PDF
+
+Step 5 (3rd Party Verification):
+  Nhà tuyển dụng kéo-thả JSON vào Verifier
+  → Frontend gửi POST /api/public/verify {dataString, signature, hash}
+  → Backend kiểm tra:
+    ✓ Authenticity: KeyService.verifySignature(dataString, signature)
+    ✓ Integrity: bcm.verifyHash(dataString) - check blockchain_logs
+    ✓ Revocation: bcm.isRevoked(hash) - check revocations table
+  → Trả về kết quả: {authenticityValid, integrityValid, isRevoked}
+
+================================================================================
+II. PHÂN TÍCH CẤU TRÚC CODE
+================================================================================
+
+2.1. LAYOUT THƯ MỤC
+
+d:\Desktop\blockchain node
+├── backend/
+│   ├── BlockchainService.js      (54 dòng)
+│   ├── HashService.js             (7 dòng)
+│   ├── KeyService.js              (59 dòng)
+│   ├── db.js                       (83 dòng)
+│   ├── server.js                   (650+ dòng)
+│   ├── package.json
+│   ├── database.sqlite
+│   ├── private.pem                (generated at runtime)
+│   └── public.pem                 (generated at runtime)
+├── frontend/
+│   ├── src/
+│   │   ├── main.jsx               (entry point)
+│   │   ├── index.css              (global styles)
+│   │   ├── App.jsx                (router logic)
+│   │   ├── components/
+│   │   │   ├── Login.jsx          (142 dòng)
+│   │   │   ├── Dashboard.jsx      (450+ dòng)
+│   │   │   ├── Lookup.jsx         (400+ dòng)
+│   │   │   ├── Verifier.jsx       (300+ dòng)
+│   │   │   ├── BlockchainExplorer.jsx (250+ dòng)
+│   │   │   ├── GradeTable.jsx
+│   │   │   ├── Sidebar.jsx
+│   │   │   ├── TopNav.jsx
+│   │   │   ├── Navbar.jsx
+│   │   │   ├── MessageBox.jsx
+│   │   │   └── ... (more components)
+│   │   └── utils/
+│   │       └── pdfFonts.js
+│   ├── vite.config.js
+│   └── package.json
+├── package.json                   (root)
+├── mo_ta_chi_tiet_du_an.md       (project documentation)
+└── bai_thuyet_trinh_du_an.txt    (presentation notes)
+
+2.2. PHÂN TÍCH CÁC MODULE CHÍNH
+
+A. backend/server.js (Chủ yếu của backend)
+
+Dòng 1-25: Config + Middleware setup
+- CORS enabled cho tất cả origins (⚠️ bảo mật yếu)
+- JSON parser limit: 50MB (hợp lý cho file upload lớn)
+- Middleware kiểm tra DB health (line 18-25) - chưa triển khai đầy đủ
+
+Dòng 26-53: Helper functions
+- calculateGPA(): Tính điểm trung bình theo công thức
+  * tx1-tx5 trọng số = 1 mỗi cái
+  * gk (mid-term) trọng số = 2
+  * ck (final) trọng số = 3
+  * Formula: (tx1+tx2+tx3+tx4+tx5 + gk*2 + ck*3) / (5 + 2 + 3)
+  ⚠️ Vấn đề: Công thức cứng, không linh hoạt
+
+- getGradeDataString(): Tạo chuỗi dữ liệu để hash
+  * Format: "${student_id}-${subject}-${semester}-${tx1}-...-${score}"
+  * Lặp lại trong multiple locations (⚠️ code duplication)
+
+Dòng 54-77: Authentication Middleware
+- authenticate: Kiểm tra JWT token từ Authorization header
+  ✓ Tách "Bearer " prefix đúng
+  ✓ Xử lý exception tốt
+  
+- requireAdmin, requireStaff: Role-based authorization
+  ✓ Kiểm tra role đúng cách
+  ⚠️ Không có logging khi reject
+
+Dòng 78-145: Public API Routes
+- GET /api/public/config: Trả issuer metadata + public key
+  ✓ Công khai khóa (đúng cách cho verifier)
+  
+- POST /api/public/verify: Xác minh 3 yếu tố
+  ✓ Logic toàn diện: authenticity + integrity + revocation
+  ⚠️ Vấn đề: Lặp code lấy student data từ hash
+  ⚠️ N+1 query: Truy vấn database multiple times cho metadata
+
+- GET /api/public/lookup/:student_id
+  ✓ Xác minh từng bản ghi tương ứng
+  ⚠️ Vấn đề lớn: Loop xác minh blockchain cho tất cả grades (O(n) queries)
+     Nếu có 100 lớp → 100 queries blockchain verification
+
+B. backend/BlockchainService.js
+
+Chức năng:
+- saveHash(): Lưu hash vào blockchain_logs (INSERT OR IGNORE)
+  ✓ IGNORE duplicates (không crash nếu duplicate)
+  
+- verifyHash(): Kiểm tra hash có trong blockchain_logs không
+  ✓ Đơn giản, hiệu quả
+  
+- revokeHash(): Đánh dấu hash bị thu hồi
+  ✓ Xử lý duplicate revocation tốt
+  
+- getLatestLogs(): Truy vấn 50 bản ghi gần nhất với LEFT JOINs
+  ✓ Query tốt với JOIN thay vì loop
+  
+- getStats(): Trả thống kê tổng hợp
+  ✓ 2 COUNT queries (có thể gộp lại 1)
+
+C. backend/KeyService.js
+
+Chức năng:
+- initKeys(): Sinh RSA keypair 2048-bit nếu chưa có
+  ✓ Tạo đúng cách: SPKI format cho public, PKCS8 cho private
+  ⚠️ Vấn đề: Khóa được lưu plaintext trên đĩa (chưa mã hóa)
+  
+- getPrivateKey(): Đọc private key từ file disk
+  ⚠️ Vấn đề lớn: fs.readFileSync() gọi MỖI LẦN cần ký tên
+     Giả sử 100 yêu cầu/giây → 100 lần I/O đĩa/giây (nút cổ chai!)
+     
+- signData(): Ký dữ liệu bằng private key
+  ✓ Sử dụng SHA256 hash algorithm đúng cách
+  
+- verifySignature(): Xác minh chữ ký bằng public key
+  ✓ Try-catch exception handling tốt
+
+D. backend/db.js
+
+Chức năng:
+- initDb(): Khởi tạo SQLite + tạo schema + insert default users
+
+Schema tables:
+1. users (id, username, password, role)
+   ⚠️ VẤN ĐỀ: Mật khẩu lưu plaintext! Phải hash bcrypt
+
+2. students (id, student_id UNIQUE, name, email, class_name)
+   ✓ Có UNIQUE constraint trên student_id
+
+3. grades (id, student_id, subject, tx1-tx5, gk, ck, score, semester, hash, signature)
+   ⚠️ THIẾU: Không có indexes trên student_id, hash, semester
+   ⚠️ THIẾU: Không có UNIQUE constraint trên (student_id, subject, semester)
+             → Có thể có duplicate records!
+
+4. certificates (id, student_id, cert_name, issue_date, hash, signature)
+   ⚠️ Giống vấn đề grades - thiếu indexes
+
+5. blockchain_logs (id, data_hash UNIQUE, timestamp)
+   ✓ UNIQUE trên data_hash (đúng)
+   ⚠️ THIẾU: INDEX trên data_hash (mỗi lookup là full table scan)
+
+6. revocations (id, data_hash UNIQUE, reason, revoked_by, timestamp)
+   ⚠️ THIẾU: INDEX trên data_hash
+
+E. frontend/src/App.jsx
+
+Main routing logic:
+- Quản lý state: activeTab, user
+- Load token từ localStorage khi mount
+- Render components dựa vào tabs
+
+⚠️ VẤN đề: URL API cứng "http://localhost:3000" 
+   Phải config environment variable
+
+F. frontend/src/components/Login.jsx (142 dòng)
+
+✓ Điểm tốt:
+  - Clean form validation
+  - Framer Motion animations
+  - Error/success message handling
+  - Password visibility toggle
+
+⚠️ Vấn đề:
+  - Request tới /api/auth/login không có timeout
+  - Không log failed login attempts (bảo mật)
+  - Mặc dù có demo credentials, không nên hiển thị bằng cách đó
+
+G. frontend/src/components/Lookup.jsx (400+ dòng)
+
+Tính năng:
+- Search student by ID
+- Display grades + certificates
+- Generate QR code
+- Export PDF
+- Export JSON (Blockcert format)
+- Verify uploaded JSON
+
+✓ Điểm tốt:
+  - QR code generation cho sharing
+  - PDF export high-quality (scale 3x)
+  - JSON export đúng format Blockcerts
+
+⚠️ Vấn đề:
+  - QR code có giới hạn ~2.9KB → Lớn transcript không fit
+  - Không có loading skeleton cho PDF export
+  - API URL cứng "http://localhost:3000"
+  - N+1 API calls khi search (lookup tất cả, sau đó verify từng bản ghi)
+
+H. frontend/src/components/Verifier.jsx (300+ dòng)
+
+Tính năng:
+- Drag-drop JSON file
+- QR code scanner (webcam)
+- Verify signature + hash + revocation
+- Support 2 formats: GradeTranscript + Blockcerts V3
+
+✓ Điểm tốt:
+  - Hỗ trợ QR scan từ webcam (UX tốt)
+  - 3-pillar verification logic
+  - Xử lý cả 2 định dạng chứng chỉ
+
+⚠️ Vấn đề:
+  - Không có retry logic nếu verification fails
+  - QR scanner không có timeout để dừng camera
+  - Parse JSON rất permissive (có thể crash nếu malformed)
+
+2.3. LUỒNG CODE CHÍNH (Call Graph)
+
+User Admin POST /api/grades
+  ↓
+[authenticate middleware] → Check JWT token
+  ↓
+[requireStaff middleware] → Check role
+  ↓
+calculateGPA() → Tính điểm
+  ↓
+getGradeDataString() → Tạo string để hash
+  ↓
+bcm.saveHash(dataString) → Hash + Insert blockchain_logs
+  ↓
+KeyService.signData(dataString) → RSA sign (⚠️ reads private.pem from disk)
+  ↓
+db.run('INSERT grades...') → Lưu vào database
+  ↓
+Response: {message, hash, calculatedScore}
+
+================================================================================
+III. ƯU ĐIỂM - CÁC PHẦN ĐƯỢC TRIỂN KHAI TỐT
+================================================================================
+
+3.1. THIẾT KẾ KIẾN TRÚC
+
+✓ Tách biệt Concerns (Separation of Concerns):
+  • Service layer (BlockchainService, KeyService, HashService)
+  • Route handlers (API endpoints)
+  • Database layer (db.js)
+  → Dễ test, dễ bảo trì, dễ mở rộng
+
+✓ Role-Based Access Control (RBAC):
+  • Middleware authenticate, requireAdmin, requireStaff
+  • Dễ thêm roles mới
+  • Kiểm tra role rõ ràng trước mỗi operation
+
+✓ Transactional Integrity:
+  • Bulk operations dùng BEGIN/COMMIT/ROLLBACK
+  • Tránh partial writes
+  • Atomic operations
+
+3.2. CRYPTOGRAPHY IMPLEMENTATION
+
+✓ RSA-2048 Public Key Cryptography:
+  • Keypair generation đúng cách (SPKI + PKCS8 format)
+  • Digital signature sử dụng SHA256 digest
+  • Signature verification robust (try-catch exception)
+
+✓ SHA-256 Hashing:
+  • Sử dụng crypto-js library
+  • Consistent hashing cho cùng data → cùng hash
+  • Suitable cho ledger integrity check
+
+3.3. FRONTEND UX/UI
+
+✓ Responsive Design:
+  • Tailwind CSS grid layout tương ứng tất cả screen sizes
+  • Mobile-first approach
+  • Flexbox + CSS grid được sử dụng đúng
+
+✓ Animation & Interactivity:
+  • Framer Motion fade-in/slide animations
+  • Loading states với skeleton
+  • Smooth transitions giữa tabs
+  • Icon từ lucide-react thích hợp
+
+✓ File Export Features:
+  • PDF export với scale 3x (high quality)
+  • JSON export có format chuẩn
+  • QR code generation + download
+  • Multiple export formats
+
+3.4. DATA FLOW & VERIFICATION LOGIC
+
+✓ 3-Pillar Verification:
+  1. Authenticity: RSA signature verification
+  2. Integrity: Hash check in blockchain_logs
+  3. Revocation: Check revocations registry
+  → Comprehensive security approach
+
+✓ Immutable Ledger Design:
+  • blockchain_logs table không bao giờ update/delete
+  • Chỉ INSERT (append-only)
+  • Revocation riêng 1 table (không sửa dữ liệu gốc)
+  → Tuân theo blockchain philosophy
+
+3.5. ERROR HANDLING & VALIDATION
+
+✓ Database Transaction Safety:
+  • BEGIN TRANSACTION...COMMIT...ROLLBACK
+  • Bulk delete/import operations protected
+  • Atomic operations
+
+✓ SQL Injection Protection:
+  • Sử dụng parameterized queries (? placeholders)
+  • Không có string concatenation trong SQL
+  • SQLite driver xử lý escaping đúng
+
+✓ JWT Token Validation:
+  • Check token existence
+  • Verify signature
+  • Try-catch exception
+
+================================================================================
+IV. VẤN ĐỀ & LỖI TIỀM ẨN
+================================================================================
+
+4.1. 🔴 CÁC VẤN ĐỀ QUAN TRỌNG (CRITICAL)
+
+VẤN ĐỀ #1: MẬT KHẨU LƯU TRỮ PLAIN TEXT
+────────────────────────────────────────
+Vị trí: backend/db.js (line 79-81) + backend/server.js (line 352-357)
+
+Code hiện tại:
+  app.post('/api/auth/login', async (req, res) => {
+      const { username, password } = req.body;
+      const user = await db.get('SELECT * FROM users WHERE username = ? AND password = ?', 
+                                 [username, password]);
+  });
+
+Vấn đề:
+  • Mật khẩu lưu plaintext trong database
+  • Nếu database bị lộ → tất cả user accounts bị compromise
+  • Không tuân OWASP, GDPR, các tiêu chuẩn bảo mật
+  • Được lưu trực tiếp: INSERT INTO users VALUES (username, password, role)
+
+Ảnh hưởng:
+  • Risk Level: CRITICAL
+  • Nếu database bị dump → tất cả mật khẩu bị lộ ngay
+  • Không reverse được mật khẩu gốc
+
+Giải pháp:
+  npm install bcrypt
+  
+  // In db.js hoặc auth.js
+  const bcrypt = require('bcrypt');
+  
+  // Khi tạo/update user
+  const hashedPassword = await bcrypt.hash(password, 10);  // salt rounds = 10
+  await db.run('INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
+               [username, hashedPassword, 'teacher']);
+  
+  // Khi login
+  const user = await db.get('SELECT * FROM users WHERE username = ?', [username]);
+  if (!user) return res.status(401).json({ error: "Invalid credentials" });
+  
+  const isValid = await bcrypt.compare(password, user.password);
+  if (!isValid) return res.status(401).json({ error: "Invalid credentials" });
+  
+  const token = jwt.sign(...);
+  res.json({ token, ... });
+
+Thời gian fix: 1-2 giờ (including test)
+Độ ưu tiên: CRITICAL - FIX TRƯỚC TIÊN
+
+────────────────────────────────────────
+
+VẤN ĐỀ #2: SECRET KEY HARD-CODED VÀ LỘ BỤI
+────────────────────────────────────────
+Vị trí: backend/server.js (line 16)
+
+Code hiện tại:
+  const SECRET_KEY = "dummy_secret_for_demo";
+
+Vấn đề:
+  • Secret key được cứng trong source code
+  • Nếu source code bị lộ → tất cả JWT tokens có thể bị giả mạo
+  • Production code không thay đổi → tất cả instances dùng cùng key
+  • Không có key rotation mechanism
+
+Ảnh hưởng:
+  • Risk Level: CRITICAL
+  • Bất kỳ ai có source code → có thể tạo admin tokens
+  • Không thể revoke tokens đã cấp (fixed key)
+
+Giải pháp:
+  // File .env
+  JWT_SECRET=your-very-long-random-string-at-least-64-chars-here
+  JWT_EXPIRY=24h
+  NODE_ENV=production
+  
+  // backend/server.js
+  require('dotenv').config();
+  
+  const SECRET_KEY = process.env.JWT_SECRET;
+  if (!SECRET_KEY) {
+      throw new Error('JWT_SECRET environment variable not set!');
+  }
+  if (SECRET_KEY.length < 32) {
+      throw new Error('JWT_SECRET must be at least 32 characters!');
+  }
+  
+  // Generate strong random key (one-time setup)
+  // const crypto = require('crypto');
+  // console.log(crypto.randomBytes(32).toString('hex'));
+
+Thời gian fix: 30 phút
+Độ ưu tiên: CRITICAL
+
+────────────────────────────────────────
+
+VẤN ĐỀ #3: KHÔNG CÓ INPUT VALIDATION
+────────────────────────────────────────
+Vị trí: Tất cả POST/PUT endpoints (backend/server.js)
+
+Code hiện tại:
+  app.post('/api/students', authenticate, requireAdmin, async (req, res) => {
+      const { student_id, name, email, class_name } = req.body;  // NO VALIDATION!
+      try {
+          await db.run('INSERT INTO students (student_id, name, email, class_name) 
+                       VALUES (?, ?, ?, ?)', 
+                       [student_id, name, email, class_name]);
+  });
+
+Vấn đề:
+  • student_id: Có thể chứa SQL keywords, special chars, null
+  • name: Có thể quá dài (>1000 chars), chứa Unicode edge cases
+  • email: Không validate format, độ dài
+  • class_name: Tương tự
+  • Không sanitize input → có thể dẫn XSS, injection tuy dùng parameterized queries
+
+Các endpoint có vấn đề:
+  POST /api/students
+  POST /api/grades (tx1-tx5, gk, ck không validate là số)
+  POST /api/certificates (issue_date không validate)
+  PUT /api/students/:id
+  POST /api/subjects
+  POST /api/classes
+
+Ảnh hưởng:
+  • Risk Level: HIGH
+  • Có thể crash backend nếu data malformed
+  • Database consistency bị phá vỡ
+  • Khó debug nếu garbage data đã save
+
+Giải pháp:
+  // File utils/validators.js
+  function validateStudentId(id) {
+      return /^[A-Z0-9]{3,20}$/.test(String(id).trim().toUpperCase());
+  }
+  
+  function validateEmail(email) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim());
+  }
+  
+  function validateName(name) {
+      const str = String(name).trim();
+      return str.length > 0 && str.length <= 255 && !/^[\s]*$/.test(str);
+  }
+  
+  function validateScore(score) {
+      const num = parseFloat(score);
+      return !isNaN(num) && num >= 0 && num <= 10;
+  }
+  
+  // In endpoint
+  app.post('/api/students', authenticate, requireAdmin, async (req, res) => {
+      const { student_id, name, email, class_name } = req.body;
+      
+      // Validate
+      if (!validateStudentId(student_id)) 
+          return res.status(400).json({ error: "Invalid student_id format (3-20 alphanumeric)" });
+      if (!validateName(name))
+          return res.status(400).json({ error: "Name required (1-255 chars)" });
+      if (!validateEmail(email))
+          return res.status(400).json({ error: "Invalid email format" });
+      if (!validateName(class_name))
+          return res.status(400).json({ error: "Invalid class_name" });
+      
+      // Sanitize
+      const sanitizedId = student_id.toUpperCase().trim();
+      const sanitizedName = name.trim();
+      
+      try {
+          await db.run('INSERT INTO students (...) VALUES (...)', 
+                       [sanitizedId, sanitizedName, email, class_name]);
+          res.json({ message: "Student added successfully" });
+      } catch (err) {
+          res.status(400).json({ error: "Duplicate student ID or database error" });
+      }
+  });
+
+Thời gian fix: 2-3 giờ
+Độ ưu tiên: CRITICAL
+
+────────────────────────────────────────
+
+VẤN ĐỀ #4: PRIVATE KEY KHÔNG MÃ HÓA VÀ I/O KHÔNG HIỆU QUẢ
+────────────────────────────────────────
+Vị trí: backend/KeyService.js (line 23-29, 35-40)
+
+Code hiện tại:
+  static getPrivateKey() {
+      return fs.readFileSync(PRIVATE_KEY_PATH, 'utf8');
+  }
+  
+  static signData(dataString) {
+      const sign = crypto.createSign('SHA256');
+      sign.update(dataString);
+      sign.end();
+      return sign.sign(this.getPrivateKey(), 'base64');  // ← Đọc disk MỖI LẦN
+  }
+
+Vấn đề:
+  1. Private key file không mã hóa:
+     - Nếu server bị xâm nhập → có thể lấy private key
+     - Tất cả chữ ký trong quá khứ có thể bị giả mạo
+  
+  2. I/O không hiệu quả:
+     - fs.readFileSync() gọi MỖI LẦN signData()
+     - 100 yêu cầu/giây = 100 lần disk I/O/giây (nút cổ chai!)
+     - Disk I/O thường 1-10ms (chậm hơn 100x so với memory access)
+
+Ảnh hưởng:
+  • Risk Level: HIGH (bảo mật) + HIGH (performance)
+  • Chữ ký có thể bị giả mạo nếu key file bị lộ
+  • Performance bottleneck: tất cả chữ ký phải đợi I/O
+
+Giải pháp:
+
+  // backend/KeyService.js - REFACTORED
+  const crypto = require('crypto');
+  const fs = require('fs');
+  const path = require('path');
+  
+  const PRIVATE_KEY_PATH = path.join(__dirname, 'private.pem');
+  const PUBLIC_KEY_PATH = path.join(__dirname, 'public.pem');
+  
+  class KeyService {
+      static #privateKey = null;  // Private field
+      static #publicKey = null;
+      
+      static initKeys() {
+          if (!fs.existsSync(PRIVATE_KEY_PATH) || !fs.existsSync(PUBLIC_KEY_PATH)) {
+              console.log("Generating new RSA Key Pair...");
+              const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', {
+                  modulusLength: 2048,
+                  publicKeyEncoding: { type: 'spki', format: 'pem' },
+                  privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
+              });
+              fs.writeFileSync(PRIVATE_KEY_PATH, privateKey);
+              fs.writeFileSync(PUBLIC_KEY_PATH, publicKey);
+              console.log("Keys generated securely.");
+          }
+          
+          // LOAD vào MEMORY khi khởi động
+          if (!this.#privateKey) {
+              this.#privateKey = fs.readFileSync(PRIVATE_KEY_PATH, 'utf8');
+          }
+          if (!this.#publicKey) {
+              this.#publicKey = fs.readFileSync(PUBLIC_KEY_PATH, 'utf8');
+          }
+      }
+      
+      static getPrivateKey() {
+          if (!this.#privateKey) {
+              throw new Error('Keys not initialized. Call initKeys() first!');
+          }
+          return this.#privateKey;  // Return from memory, NOT disk!
+      }
+      
+      static getPublicKey() {
+          if (!this.#publicKey) {
+              throw new Error('Keys not initialized. Call initKeys() first!');
+          }
+          return this.#publicKey;  // Return from memory
+      }
+      
+      static signData(dataString) {
+          const sign = crypto.createSign('SHA256');
+          sign.update(dataString);
+          sign.end();
+          return sign.sign(this.getPrivateKey(), 'base64');  // ← Từ memory, không disk!
+      }
+  }
+  
+  module.exports = KeyService;
+  
+  // In server.js - gọi khởi tạo khi app start
+  const { initDb } = require('./db');
+  const KeyService = require('./KeyService');
+  
+  const PORT = 3000;
+  let db;
+  let bcm;
+  
+  (async () => {
+      db = await initDb();
+      KeyService.initKeys();  // ← LOAD keys vào memory
+      bcm = new BlockchainService(db);
+      
+      app.listen(PORT, () => {
+          console.log(`Blockchain server running on port ${PORT}`);
+      });
+  })();
+
+Thời gian fix: 1-2 giờ
+Độ ưu tiên: HIGH (combine bảo mật + performance)
+
+────────────────────────────────────────
+
+4.2. 🟡 CÁC VẤN ĐỀ TRUNG BÌNH (MEDIUM)
+
+VẤN ĐỀ #5: RACE CONDITION TRONG TẠO/CẬP NHẬT ĐIỂM
+────────────────────────────────────────
+Vị trí: backend/server.js (line 412-429)
+
+Code hiện tại:
+  app.post('/api/grades', authenticate, requireStaff, async (req, res) => {
+      const existing = await db.get(
+          'SELECT id FROM grades WHERE student_id = ? AND subject = ? AND semester = ?', 
+          [student_id, subject, semester]
+      );
+      if (existing) {
+          await db.run('UPDATE grades SET ... WHERE id = ?', [existing.id, ...]);
+      } else {
+          await db.run('INSERT INTO grades (...) VALUES (...)', [...]);
+      }
+  });
+
+Vấn đề (Race Condition):
+  Thread 1: SELECT → No result found
+  Thread 2: SELECT → No result found
+  Thread 1: INSERT → OK
+  Thread 2: INSERT → DUPLICATE KEY ERROR (crash) hoặc cơ sở dữ liệu không nhất quán
+
+Nếu 2 admin tạo cùng grade cho 1 sinh viên / 1 môn / 1 semester:
+  • Có thể INSERT duplicate records
+  • Hoặc một request crash
+  • Blockchain log được tạo nhiều lần cho cùng dữ liệu
+
+Giải pháp (UPSERT):
+  app.post('/api/grades', authenticate, requireStaff, async (req, res) => {
+      const { student_id, subject, semester, tx1, tx2, tx3, tx4, tx5, gk, ck } = req.body;
+      
+      const score = calculateGPA({ tx1, tx2, tx3, tx4, tx5, gk, ck });
+      const dataString = getGradeDataString({ student_id, subject, semester, ...scores });
+      const hash = await bcm.saveHash(dataString);
+      const signature = KeyService.signData(dataString);
+      
+      try {
+          // Atomic UPSERT - không race condition!
+          await db.run(`
+              INSERT INTO grades (student_id, subject, semester, score, hash, signature, 
+                                  tx1, tx2, tx3, tx4, tx5, gk, ck)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(student_id, subject, semester) DO UPDATE SET
+                  score=excluded.score,
+                  hash=excluded.hash,
+                  signature=excluded.signature,
+                  tx1=excluded.tx1, tx2=excluded.tx2, tx3=excluded.tx3,
+                  tx4=excluded.tx4, tx5=excluded.tx5,
+                  gk=excluded.gk, ck=excluded.ck
+          `, [student_id, subject, semester, score, hash, signature, 
+              tx1, tx2, tx3, tx4, tx5, gk, ck]);
+          
+          res.json({ message: "Grade added/updated", hash, calculatedScore: score });
+      } catch (err) {
+          console.error('Grade save error:', err);
+          res.status(500).json({ error: 'Error saving grade' });
+      }
+  });
+
+Lưu ý: Cần thêm UNIQUE constraint vào schema:
+  CREATE TABLE IF NOT EXISTS grades (
+      ...
+      UNIQUE(student_id, subject, semester)
+  );
+
+Thời gian fix: 1 giờ
+Độ ưu tiên: HIGH
+
+────────────────────────────────────────
+
+VẤN ĐỀ #6: VẤN ĐỀ N+1 QUERY TRONG BLOCKCHAIN VERIFICATION
+────────────────────────────────────────
+Vị trí: backend/server.js (line 273-281)
+
+Code hiện tại:
+  app.get('/api/public/lookup/:student_id', async (req, res) => {
+      const student_id = req.params.student_id.toUpperCase();
+      const grades = await db.all('SELECT * FROM grades WHERE student_id = ?', [student_id]);
+      
+      const verifiedGrades = await Promise.all(grades.map(async (g) => {
+          const dataString = getGradeDataString(g);
+          const hashStatus = await bcm.verifyHash(dataString);  // ← DB QUERY!
+          const sigStatus = KeyService.verifySignature(dataString, g.signature);
+          const revoked = await bcm.isRevoked(g.hash);  // ← ANOTHER DB QUERY!
+          ...
+      }));
+  });
+
+Vấn đề (N+1 Query):
+  • Lấy 1 query: SELECT * FROM grades WHERE student_id = ?
+  • Cho mỗi grade (N grades):
+    - Query 1: SELECT * FROM blockchain_logs WHERE data_hash = ?
+    - Query 2: SELECT * FROM revocations WHERE data_hash = ?
+  • Total queries: 1 + 2N
+  
+  Nếu student có 50 lớp:
+    • 1 + 2*50 = 101 queries!
+    • Thực tế hơn: ~200ms per query × 100 = 20 seconds!! (⚠️ timeout)
+
+Giải pháp (JOIN):
+  app.get('/api/public/lookup/:student_id', async (req, res) => {
+      const student_id = req.params.student_id.toUpperCase().replace(/-/g, '');
+      const student = await db.get('SELECT name, class_name FROM students WHERE student_id = ?', 
+                                     [student_id]);
+      
+      if (!student) return res.status(404).json({ error: "Student not found" });
+      
+      // Single query với LEFT JOINs thay vì loop!
+      const grades = await db.all(`
+          SELECT 
+              g.*,
+              CASE WHEN bl.data_hash IS NOT NULL THEN 'Valid' ELSE 'Tampered' END as blockchain_status,
+              CASE WHEN r.data_hash IS NOT NULL THEN 1 ELSE 0 END as is_revoked,
+              r.reason as revocation_reason,
+              r.revoked_by,
+              r.timestamp as revoked_at
+          FROM grades g
+          LEFT JOIN blockchain_logs bl ON g.hash = bl.data_hash
+          LEFT JOIN revocations r ON g.hash = r.data_hash
+          WHERE g.student_id = ?
+      `, [student_id]);
+      
+      // Process results (in-memory, no more queries!)
+      const verifiedGrades = grades.map(g => {
+          const dataString = getGradeDataString(g);
+          const sigStatus = KeyService.verifySignature(dataString, g.signature);
+          
+          return {
+              ...g,
+              blockchainStatus: g.blockchain_status,
+              signatureVerified: sigStatus,
+              isRevoked: !!g.is_revoked,
+              revocationInfo: g.is_revoked ? {
+                  reason: g.revocation_reason,
+                  revokedBy: g.revoked_by,
+                  timestamp: g.revoked_at
+              } : null
+          };
+      });
+      
+      res.json({
+          student_id,
+          name: student.name,
+          class_name: student.class_name,
+          record_count: grades.length,
+          blockchain_verified: grades.every(g => g.blockchainStatus === 'Valid'),
+          grades: verifiedGrades
+      });
+  });
+
+Thời gian fix: 2-3 giờ (bao gồm refactor cả /api/grades GET)
+Độ ưu tiên: HIGH (performance critical)
+
+────────────────────────────────────────
+
+VẤN ĐỀ #7: KHÔNG CÓ DATABASE INDEXES
+────────────────────────────────────────
+Vị trí: backend/db.js
+
+Vấn đề:
+  • Mỗi query theo student_id, hash, semester → FULL TABLE SCAN (O(n))
+  • Nếu có 10,000 records:
+    - Với index: ~1ms (binary search)
+    - Không index: ~500ms (full scan)
+    - 500x chậm hơn!
+
+Giải pháp:
+  // backend/db.js - thêm vào initDb()
+  async function initDb() {
+      const db = await open({...});
+      
+      await db.exec(`
+          CREATE TABLE IF NOT EXISTS grades (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              student_id TEXT,
+              subject TEXT,
+              ...
+              UNIQUE(student_id, subject, semester)  -- ← Tạo index
+          );
+      `);
+      
+      // Tạo thêm indexes
+      await db.exec(`
+          CREATE INDEX IF NOT EXISTS idx_grades_student_id ON grades(student_id);
+          CREATE INDEX IF NOT EXISTS idx_grades_hash ON grades(hash);
+          CREATE INDEX IF NOT EXISTS idx_grades_semester ON grades(semester);
+          
+          CREATE INDEX IF NOT EXISTS idx_blockchain_logs_hash ON blockchain_logs(data_hash);
+          CREATE INDEX IF NOT EXISTS idx_revocations_hash ON revocations(data_hash);
+          
+          CREATE INDEX IF NOT EXISTS idx_certs_student_id ON certificates(student_id);
+          CREATE INDEX IF NOT EXISTS idx_certs_hash ON certificates(hash);
+          
+          CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+      `);
+      
+      return db;
+  }
+
+Thời gian fix: 30 phút
+Độ ưu tiên: HIGH (performance)
+
+────────────────────────────────────────
+
+VẤN ĐỀ #8: CORS ALLOWS TẤT CẢ ORIGINS
+────────────────────────────────────────
+Vị trí: backend/server.js (line 9)
+
+Code hiện tại:
+  app.use(cors());  // ← Cho phép requests từ BẤT KỲ domain nào!
+
+Vấn đề:
+  • Một website độc hại có thể tạo request từ browser user
+  • Nếu user đã logged in (token trong localStorage) → request sẽ mang token
+  • Attacker có thể:
+    - Delete sinh viên
+    - Modify điểm số
+    - Thu hồi chứng chỉ
+    - Tạo giáo viên mới
+
+Giải pháp:
+  // .env
+  ALLOWED_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
+  
+  // backend/server.js
+  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [];
+  
+  app.use(cors({
+      origin: (origin, callback) => {
+          if (!origin || allowedOrigins.includes(origin)) {
+              callback(null, true);
+          } else {
+              callback(new Error('Not allowed by CORS'));
+          }
+      },
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE'],
+      allowedHeaders: ['Content-Type', 'Authorization']
+  }));
+
+Thời gian fix: 30 phút
+Độ ưu tiên: HIGH (bảo mật)
+
+────────────────────────────────────────
+
+VẤN ĐỀ #9: KHÔNG CÓ RATE LIMITING
+────────────────────────────────────────
+Vị trí: backend/server.js - KHÔNG CÓ
+
+Vấn đề:
+  • Attacker có thể brute-force login
+  • Attacker có thể spam API endpoints
+  • DDoS attacks không bị throttle
+
+Nếu attacker thử 10,000 mật khẩu:
+  • Không rate limit → 10,000 requests trong 1 giây
+  • Server crash hoặc response timeout
+
+Giải pháp:
+  npm install express-rate-limit
+  
+  // backend/server.js
+  const rateLimit = require('express-rate-limit');
+  
+  // General API limiter
+  const apiLimiter = rateLimit({
+      windowMs: 15 * 60 * 1000,  // 15 minutes
+      max: 100,  // 100 requests per 15 minutes
+      message: 'Too many requests from this IP, please try again later.',
+      standardHeaders: true,  // Return rate limit info in `RateLimit-*` headers
+      legacyHeaders: false,   // Disable `X-RateLimit-*` headers
+      skip: (req) => req.user?.role === 'admin'  // Allow admin bypass
+  });
+  
+  // Stricter login limiter
+  const loginLimiter = rateLimit({
+      windowMs: 15 * 60 * 1000,
+      max: 5,  // 5 attempts per 15 minutes
+      message: 'Too many login attempts, please try again later.',
+      skipSuccessfulRequests: true  // Don't count successful logins
+  });
+  
+  // Apply limiters
+  app.use('/api/', apiLimiter);
+  app.post('/api/auth/login', loginLimiter, async (req, res) => { ... });
+
+Thời gian fix: 1 giờ
+Độ ưu tiên: MEDIUM
+
+────────────────────────────────────────
+
+VẤN ĐỀ #10: KHÔNG CÓ ERROR HANDLING TRONG ASYNC ROUTES
+────────────────────────────────────────
+Vị trí: Nhiều endpoints (backend/server.js)
+
+Code hiện tại:
+  app.post('/api/grades', authenticate, requireStaff, async (req, res) => {
+      const score = calculateGPA({ ... });  // ← Có thể throw exception
+      const dataString = getGradeDataString({ ... });
+      const hash = await bcm.saveHash(dataString);  // ← Không catch!
+      const signature = KeyService.signData(dataString);  // ← Không catch!
+      // ...
+  });
+
+Vấn đề:
+  • Unhandled promise rejection → server crash
+  • Không có error logging
+  • Client không biết chuyện gì xảy ra
+
+Giải pháp:
+  app.post('/api/grades', authenticate, requireStaff, async (req, res) => {
+      try {
+          const { student_id, subject, semester, tx1, tx2, tx3, tx4, tx5, gk, ck } = req.body;
+          
+          // Validate
+          if (!validateStudentId(student_id)) {
+              return res.status(400).json({ error: "Invalid student_id" });
+          }
+          
+          const score = calculateGPA({ tx1, tx2, tx3, tx4, tx5, gk, ck });
+          const dataString = getGradeDataString({ student_id, subject, semester, ...scores });
+          const hash = await bcm.saveHash(dataString);
+          const signature = KeyService.signData(dataString);
+          
+          await db.run('INSERT INTO grades ... VALUES ...', [...]);
+          
+          res.json({ message: "Grade saved", hash, calculatedScore: score });
+      } catch (err) {
+          console.error('[/api/grades] Error:', err.message);
+          res.status(500).json({ error: 'Error saving grade' });
+      }
+  });
+
+Thời gian fix: 2-3 giờ (áp dụng cho tất cả endpoints)
+Độ ưu tiên: MEDIUM
+
+────────────────────────────────────────
+
+4.3. 🟠 CÁC VẤN ĐỀ THẤP (LOW)
+
+VẤN ĐỀ #11: KHÔNG CÓ AUDIT LOGGING
+────────────────────────────────────────
+Vị trí: backend/ - KHÔNG CÓ
+
+Vấn đề:
+  • Không biết ai modify dữ liệu nào, lúc nào
+  • Không compliance với GDPR, các tiêu chuẩn audit
+  • Khó debug nếu dữ liệu bị sai
+
+Giải pháp:
+  // Thêm table audit_logs
+  // Log mỗi POST/PUT/DELETE operation
+  // Chi tiết: user, action, resource, changes, timestamp
+
+Thời gian fix: 2-3 giờ
+Độ ưu tiên: LOW (but important for compliance)
+
+────────────────────────────────────────
+
+VẤN ĐỀ #12: KHÔNG CÓ PAGINATION
+────────────────────────────────────────
+Vị trí: GET /api/students, GET /api/grades
+
+Vấn đề:
+  • Trả về TẤT CẢ records cùng lúc
+  • Nếu 100,000 sinh viên → response 50MB+ (memory bloat, slow)
+  • Frontend tải tất cả vào state → crash
+
+Giải pháp:
+  GET /api/students?limit=50&offset=0
+  → Trả về 50 records
+  
+  Implemented via:
+  const limit = Math.min(parseInt(req.query.limit) || 50, 500);
+  const offset = parseInt(req.query.offset) || 0;
+  const students = await db.all(
+      'SELECT * FROM students LIMIT ? OFFSET ?',
+      [limit, offset]
+  );
+
+Thời gian fix: 1-2 giờ
+Độ ưu tiên: LOW (but necessary for scale)
+
+────────────────────────────────────────
+
+VẤN ĐỀ #13: FRONTEND API URL CỨNG
+────────────────────────────────────────
+Vị trí: frontend/src/components/*.jsx (multiple files)
+
+Code hiện tại:
+  const API_URL = 'http://localhost:3000';  // ← Hard-coded!
+
+Vấn đề:
+  • Không config được per environment
+  • Production không thể thay đổi mà không rebuild
+  • Khó deploy lên staging/production
+
+Giải pháp:
+  // frontend/.env.local (development)
+  VITE_API_URL=http://localhost:3000
+  
+  // frontend/.env.production
+  VITE_API_URL=https://api.security-academy.edu.vn
+  
+  // frontend/src/config.js
+  export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  
+  // frontend/src/components/Login.jsx
+  import { API_URL } from '../config';
+  
+  const response = await axios.post(`${API_URL}/api/auth/login`, {...});
+
+Thời gian fix: 1 giờ
+Độ ưu tiên: LOW
+
+════════════════════════════════════════════════════════════════════════════════
+
+VẤN ĐỀ #14: QR CODE SIZE LIMIT
+────────────────────────────────────────
+Vị trí: frontend/src/components/Lookup.jsx
+
+Vấn đề:
+  • QR code có limit ~2.9KB dữ liệu
+  • Transcript lớn (100+ lớp) không fit vào QR
+  • User không thể share qua QR code
+
+Giải pháp:
+  • Tạo shortened URL trỏ đến JSON trên server
+  • QR code chỉ chứa URL ngắn (~50 bytes)
+  • Backend trả về JSON khi access URL
+
+Thời gian fix: 2-3 giờ
+Độ ưu tiên: LOW
+
+════════════════════════════════════════════════════════════════════════════════
+
+================================================================================
+V. HIỆU NĂNG
+================================================================================
+
+5.1. BOTTLENECKS ĐÃ XÁC ĐỊNH
+
+BOTTLENECK #1: Private Key I/O (fs.readFileSync mỗi lần sign)
+- Current: ~1-10ms per signature (disk access)
+- Optimized: <1μs per signature (memory access)
+- Improvement: 1000-10000x faster
+- Fix: Load keys vào memory (VẤN ĐỀ #4)
+
+BOTTLENECK #2: N+1 Queries trong Lookup
+- Current: 1 + 2N queries (N = số lớp)
+- Optimized: 1 query với LEFT JOINs
+- Improvement: 100x faster cho 50 lớp
+- Fix: VẤN ĐỀ #6
+
+BOTTLENECK #3: Full Table Scans (No Indexes)
+- Current: O(n) per query (~500ms cho 10,000 records)
+- Optimized: O(log n) per query (~1ms với index)
+- Improvement: 500x faster
+- Fix: VẤN ĐỀ #7
+
+BOTTLENECK #4: No Pagination
+- Current: Return tất cả records (memory bloat)
+- Optimized: LIMIT 50 OFFSET 0
+- Improvement: Linear memory usage
+- Fix: VẤN ĐỀ #12
+
+5.2. PERFORMANCE METRICS (Estimated)
+
+Scenario: 10,000 sinh viên × 50 lớp mỗi em = 500,000 grades
+
+Current Performance:
+┌─────────────────────────────────┬────────┬─────────┐
+│ Operation                       │ Time   │ Issue   │
+├─────────────────────────────────┼────────┼─────────┤
+│ GET /api/public/lookup/:id      │ 50s    │ N+1 + No Index + Key I/O
+│ POST /api/grades (1 grade)      │ 50ms   │ Key I/O
+│ GET /api/grades (list all)      │ timeout│ No pagination
+│ Verify certificate              │ 200ms  │ Key I/O × multiple
+│ POST /api/grades/bulk (100)     │ 5s     │ No pagination + Key I/O
+└─────────────────────────────────┴────────┴─────────┘
+
+After Optimization:
+┌─────────────────────────────────┬────────┬─────────┐
+│ Operation                       │ Time   │ Improvement
+├─────────────────────────────────┼────────┼─────────┤
+│ GET /api/public/lookup/:id      │ 200ms  │ 250x
+│ POST /api/grades (1 grade)      │ <1ms   │ 50x
+│ GET /api/grades (paginated)     │ 50ms   │ ∞ (unlimited records possible)
+│ Verify certificate              │ <1ms   │ 200x
+│ POST /api/grades/bulk (100)     │ 200ms  │ 25x
+└─────────────────────────────────┴────────┴─────────┘
+
+5.3. QUICK WINS (Implement First)
+
+Priority 1 (30 min): Load private key to memory
+  → 50-1000x faster signing
+
+Priority 2 (30 min): Add database indexes
+  → 500x faster lookups
+
+Priority 3 (2h): Fix N+1 query problem
+  → 100x faster listing
+
+Priority 4 (1h): Add pagination
+  → Unlimited data support
+
+Total time: 4 hours → 100-500x performance improvement!
+
+================================================================================
+VI. CODE SMELL & CHẤT LƯỢNG CODE
+================================================================================
+
+6.1. CODE DUPLICATION
+
+ISSUE #1: GPA Calculation lặp lại
+────────────────────────────────────────
+Vị trí: 
+  - backend/server.js (line 27-48)
+  - frontend/src/components/Verifier.jsx (line ~150)
+
+Code:
+  Backend:
+    let txSum = 0; let txCount = 0;
+    ['tx1', 'tx2', 'tx3', 'tx4', 'tx5'].forEach(k => {
+        const v = parseFloat(g[k]);
+        if (!isNaN(v)) { txSum += v; txCount++; }
+    });
+    const gk = parseFloat(g.gk);
+    const ck = parseFloat(g.ck);
+    let totalWeight = txCount;
+    let totalScore = txSum;
+    if (!isNaN(gk)) { totalScore += gk * 2; totalWeight += 2; }
+    if (!isNaN(ck)) { totalScore += ck * 3; totalWeight += 3; }
+    return totalWeight > 0 ? (totalScore / totalWeight).toFixed(1) : '0.0';
+  
+  Frontend:
+    const calculateLocalAvg = (s) => {
+        let txSum = 0; let txCount = 0;
+        ['tx1', 'tx2', 'tx3', 'tx4', 'tx5'].forEach(k => {
+            const v = parseFloat(s[k]);
+            if (!isNaN(v)) { txSum += v; txCount++; }
+        });
+        const gk = parseFloat(s.gk);
+        const ck = parseFloat(s.ck);
+        let tw = txCount; let ts = txSum;
+        if (!isNaN(gk)) { ts += gk * 2; tw += 2; }
+        if (!isNaN(ck)) { ts += ck * 3; tw += 3; }
+        return tw > 0 ? (ts / tw).toFixed(1) : '0.0';
+    };
+
+Giải pháp:
+  // shared/utils.js
+  export function calculateGPA(scores) {
+      const { tx1, tx2, tx3, tx4, tx5, gk, ck } = scores;
+      
+      let txSum = 0, txCount = 0;
+      [tx1, tx2, tx3, tx4, tx5].forEach(v => {
+          const num = parseFloat(v);
+          if (!isNaN(num)) { txSum += num; txCount++; }
+      });
+      
+      const gkNum = parseFloat(gk);
+      const ckNum = parseFloat(ck);
+      
+      let totalScore = txSum;
+      let totalWeight = txCount;
+      
+      if (!isNaN(gkNum)) { totalScore += gkNum * 2; totalWeight += 2; }
+      if (!isNaN(ckNum)) { totalScore += ckNum * 3; totalWeight += 3; }
+      
+      return totalWeight > 0 ? (totalScore / totalWeight).toFixed(1) : '0.0';
+  }
+  
+  // backend/server.js
+  const { calculateGPA } = require('../shared/utils');
+  const score = calculateGPA({ tx1, tx2, tx3, tx4, tx5, gk, ck });
+  
+  // frontend/src/components/Verifier.jsx
+  import { calculateGPA } from '../utils/gpa';
+  const localAvg = calculateGPA(g.scores);
+
+ISSUE #2: getGradeDataString lặp lại
+────────────────────────────────────────
+Vị trí:
+  - backend/server.js (line 49-53)
+  - Used in multiple places with slight variations
+
+Giải pháp:
+  // Hãy đặt nó ở riêng một module utility hoặc tại đầu server.js
+  // đảm bảo consistency
+
+6.2. NAMING CONVENTIONS
+
+ISSUE #1: Variable names không descriptive
+────────────────────────────────────────
+Code:
+  const f = (v) => (v != null && v !== '') ? parseFloat(v).toFixed(1) : '';
+  const g = g.gk;
+  const sem = g.semester || '';
+  const score = calculateGPA(g);
+
+Vấn đề:
+  • f, v, g, sem → không rõ ý nghĩa
+  • Khó đọc, khó debug
+
+Giải pháp:
+  const formatScore = (value) => 
+      (value != null && value !== '') ? parseFloat(value).toFixed(1) : '';
+  
+  const midtermScore = grade.gk;
+  const semester = grade.semester || '';
+  const gpa = calculateGPA(grade);
+
+ISSUE #2: Inconsistent naming
+────────────────────────────────────────
+Vị trí: backend/server.js
+
+  • bcm vs BlockchainService
+  • dataString vs data_string
+  • SignData vs verifySignature (camelCase inconsistent)
+  • db vs database
+
+Giải pháp:
+  Chọn 1 convention (recommend camelCase cho JavaScript):
+  • blockchainService hoặc bcm (consistent)
+  • dataString (camelCase, consistent)
+  • signData, verifySignature (camelCase, consistent)
+
+6.3. MAGIC NUMBERS & STRINGS
+
+ISSUE: Hard-coded values
+────────────────────────────────────────
+Code:
+  .toFixed(1)              # Why 1 decimal? Should be constant
+  50                       # Magic number cho limit
+  2048                     # RSA key size (should be config)
+  "dummy_secret_for_demo"  # Hard-coded secret
+  ["tx1", "tx2", "tx3", "tx4", "tx5"]  # Hard-coded 5 subjects
+
+Giải pháp:
+  // backend/config.js
+  module.exports = {
+      JWT_SECRET: process.env.JWT_SECRET || 'dev-secret',
+      RSA_KEY_SIZE: 2048,
+      GPA_DECIMAL_PLACES: 1,
+      PAGINATION_LIMIT: 50,
+      PAGINATION_MAX: 500,
+      SEMESTER_SUBJECTS: {
+          TX: ['tx1', 'tx2', 'tx3', 'tx4', 'tx5'],  // 5 assignments
+          MIDTERM: 'gk',
+          FINAL: 'ck'
+      },
+      SCORE_WEIGHTS: {
+          TX: 1,      // Each assignment weight 1
+          MIDTERM: 2, // Midterm weight 2
+          FINAL: 3    // Final weight 3
+      }
+  };
+
+6.4. FUNCTION COMPLEXITY
+
+ISSUE #1: server.js là 1 file lớn (650+ dòng)
+────────────────────────────────────────────────
+Vấn đề:
+  • Khó tìm code
+  • Khó test
+  • God object anti-pattern
+
+Giải pháp:
+  Phân tách thành modules:
+  backend/
+  ├── routes/
+  │   ├── auth.js           (login, create user)
+  │   ├── students.js       (CRUD students)
+  │   ├── grades.js         (CRUD grades)
+  │   ├── certificates.js   (CRUD certificates)
+  │   ├── verifier.js       (public verify endpoint)
+  │   └── blockchain.js     (explorer, revocation)
+  ├── middleware/
+  │   ├── auth.js           (authenticate, requireAdmin, etc)
+  │   └── validation.js     (input validation)
+  ├── server.js             (30 dòng: setup + register routes)
+  └── app.js                (Express app config)
+
+ISSUE #2: calculateGPA function quá long
+────────────────────────────────────────────
+Code:
+  Có thể refactor thành:
+  - sumAssignmentScores()
+  - applyWeights()
+  - getFinalScore()
+
+6.5. ERROR MESSAGES
+
+ISSUE: Generic error messages
+────────────────────────────────────────
+Code:
+  res.status(500).json({ error: "Lỗi khi xóa sinh viên." });
+  res.status(401).json({ error: "Sai thông tin đăng nhập." });
+
+Vấn đề:
+  • Khó debug cho developer
+  • Không có error context
+  • Không log exception gốc
+
+Giải pháp:
+  try {
+      // ...
+  } catch (err) {
+      console.error('[DELETE /api/students/:id] Error:', {
+          studentId: req.params.id,
+          error: err.message,
+          stack: err.stack,
+          timestamp: new Date().toISOString()
+      });
+      
+      res.status(500).json({
+          error: "Failed to delete student",
+          code: "DELETE_STUDENT_ERROR",
+          timestamp: new Date().toISOString()
+          // requestId: req.id  (optional, cho tracing)
+      });
+  }
+
+================================================================================
+VII. THIẾU SÓT
+================================================================================
+
+7.1. CHỨC NĂNG THIẾU
+
+MISSING #1: Password Reset / Forgot Password
+────────────────────────────────────────────
+Status: KHÔNG CÓ
+Impact: Nếu quên password → không reset được
+Effort: 2-3 giờ
+Priority: LOW (cho demo) → MEDIUM (production)
+
+MISSING #2: Email Notifications
+────────────────────────────────────────────
+Status: KHÔNG CÓ
+Features cần:
+  • Gửi email khi điểm được cập nhật
+  • Thông báo khi chứng chỉ bị thu hồi
+  • Xác thực email khi tạo account
+Impact: Sinh viên không biết status
+Effort: 3-4 giờ (+ setup email provider)
+Priority: LOW
+
+MISSING #3: Audit Logging
+────────────────────────────────────────────
+Status: KHÔNG CÓ
+Features cần:
+  • Log tất cả CRUD operations
+  • Theo dõi who/what/when/where
+  • Query audit logs
+Impact: Không compliance GDPR
+Effort: 2-3 giờ
+Priority: MEDIUM (production)
+
+MISSING #4: Automated Backups
+────────────────────────────────────────────
+Status: KHÔNG CÓ
+Impact: Nếu database corrupted → mất dữ liệu
+Effort: 1-2 giờ (cron job + S3 upload)
+Priority: MEDIUM
+
+MISSING #5: Admin Settings Panel
+────────────────────────────────────────────
+Status: KHÔNG CÓ
+Features:
+  • Change GPA calculation weights
+  • Configure scoring system
+  • Set semester config
+  • Manage system parameters
+Effort: 2-3 giờ
+Priority: LOW
+
+MISSING #6: Bulk Import from CSV
+────────────────────────────────────────────
+Status: CÓ cho students, THIẾU cho grades/certificates
+Impact: Admin phải input từng lớp 1
+Effort: 1-2 giờ
+Priority: LOW
+
+MISSING #7: Data Export & Compliance
+────────────────────────────────────────────
+Status: CÓ JSON/PDF, THIẾU GDPR compliance
+Features cần:
+  • Data export dạng CSV cho admin
+  • Xóa dữ liệu student (GDPR right to be forgotten)
+  • Data retention policy
+Effort: 2-3 giờ
+Priority: MEDIUM (required for production)
+
+7.2. INCOMPLETE IMPLEMENTATIONS
+
+INCOMPLETE #1: Teacher Dashboard
+────────────────────────────────────────────
+Status: PARTIAL - Teachers chỉ có thể tạo grades
+Missing:
+  • Xem danh sách lớp của mình
+  • Bulk upload grades từ file
+  • Statistics: average GPA, pass rate, etc.
+Effort: 2-3 giờ
+Priority: LOW
+
+INCOMPLETE #2: Revocation UI
+────────────────────────────────────────────
+Status: API có, Frontend THIẾU UI
+Features cần:
+  • Search chứng chỉ cần thu hồi
+  • Confirm revocation
+  • Reason text area
+  • Revocation history view
+Effort: 1-2 giờ
+Priority: MEDIUM
+
+INCOMPLETE #3: User Management
+────────────────────────────────────────────
+Status: CÓ admin tạo teacher, THIẾU:
+  • Edit user profile
+  • Change password
+  • Delete users
+  • View user activity log
+  • User roles management (custom roles)
+Effort: 2-3 giờ
+Priority: MEDIUM
+
+================================================================================
+VIII. ĐỀ XUẤT CẢI TIẾN - HÀNH ĐỘNG CỤ THỂ
+================================================================================
+
+8.1. IMMEDIATE ACTIONS (TUẦN 1 - NGĂN CHẶN PRODUCTION)
+
+PRIORITY 1: Thay thế Hard-coded Secret Key
+──────────────────────────────────────
+Effort: 30 phút
+Steps:
+  1. Cài đặt dotenv: npm install dotenv
+  2. Tạo .env file:
+     JWT_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+     NODE_ENV=production
+  3. Cập nhật backend/server.js:
+     require('dotenv').config();
+     const SECRET_KEY = process.env.JWT_SECRET;
+  4. Test: Confirm JWT verification hoạt động
+  5. Document: Hướng dẫn setup .env cho team
+
+PRIORITY 2: Implement Password Hashing
+──────────────────────────────────────
+Effort: 1-2 giờ
+Steps:
+  1. npm install bcrypt
+  2. Tạo utils/auth.js với hashPassword() / verifyPassword()
+  3. Update db initialization: Hash default passwords
+  4. Update login endpoint: Dùng bcrypt.compare()
+  5. Migrate existing users: Run script hash all existing passwords
+  6. Test: Login hoạt động với hashed password
+
+PRIORITY 3: Implement Input Validation
+──────────────────────────────────────
+Effort: 2-3 giờ
+Steps:
+  1. Tạo utils/validators.js với validation functions
+  2. Apply validation trên tất cả POST/PUT endpoints:
+     - validateStudentId()
+     - validateEmail()
+     - validateScore(0-10)
+     - validateName(1-255 chars)
+  3. Test: Invalid input trả về 400 error
+  4. Update error messages: Rõ ràng giá trị invalid là gì
+
+PRIORITY 4: Hạn chế CORS Origins
+──────────────────────────────────────
+Effort: 30 phút
+Steps:
+  1. Thêm ALLOWED_ORIGINS vào .env
+  2. Update cors middleware (see VẤN ĐỀ #8)
+  3. Test: Request từ allowed origin → OK
+           Request từ other origin → CORS error
+
+PRIORITY 5: Load Private Keys into Memory
+──────────────────────────────────────────
+Effort: 1-2 giờ
+Steps:
+  1. Refactor KeyService.js (see VẤN ĐỀ #4)
+  2. Gọi KeyService.initKeys() khi app startup
+  3. Benchmark: So sánh tốc độ signing trước/sau
+  4. Expected improvement: 100-1000x faster
+
+**Total Time: 4-5 giờ → Loại bỏ 5 vấn đề quan trọng nhất**
+
+────────────────────────────────────────────────────────────────
+
+8.2. SHORT-TERM IMPROVEMENTS (TUẦN 2-3)
+
+PRIORITY 6: Add Database Indexes
+──────────────────────────────────────────
+Effort: 30 phút
+Steps:
+  1. Add indexes (see VẤN ĐỀ #7)
+  2. Verify UNIQUE constraint trên (student_id, subject, semester)
+  3. Benchmark: Query performance trước/sau
+  4. Expected improvement: 100-500x faster
+
+PRIORITY 7: Fix N+1 Query Problem
+──────────────────────────────────────────
+Effort: 2-3 giờ
+Steps:
+  1. Refactor GET /api/public/lookup/:id (see VẤN ĐỀ #6)
+  2. Use LEFT JOINs với blockchain_logs + revocations
+  3. Test: Verify 50 grades lookup < 500ms
+  4. Apply same pattern tới GET /api/grades
+
+PRIORITY 8: Implement Rate Limiting
+──────────────────────────────────────────
+Effort: 1 giờ
+Steps:
+  1. npm install express-rate-limit
+  2. Setup apiLimiter (100 req/15min) + loginLimiter (5 req/15min)
+  3. Test: Exceed limit → HTTP 429 error
+
+PRIORITY 9: Add Try-Catch Error Handling
+──────────────────────────────────────────
+Effort: 2-3 giờ
+Steps:
+  1. Wrap tất cả async endpoints trong try-catch
+  2. Log errors với context (endpoint, params, error message)
+  3. Return consistent error response: {error, code, timestamp}
+  4. Test: Simulate failures, verify error responses
+
+PRIORITY 10: Consolidate GPA Calculation
+──────────────────────────────────────────
+Effort: 1 giờ
+Steps:
+  1. Tạo shared/gpa.js hoặc utils/calculations.js
+  2. Move calculateGPA logic
+  3. Import từ cả backend + frontend (hoặc share qua API call)
+  4. Eliminate code duplication
+
+**Total Time: 8-9 giờ → Loại bỏ performance + quality issues**
+
+────────────────────────────────────────────────────────────────
+
+8.3. MEDIUM-TERM IMPROVEMENTS (THÁNG 1-2)
+
+PRIORITY 11: Implement Audit Logging
+──────────────────────────────────────────
+Effort: 3-4 giờ
+Steps:
+  1. Tạo audit_logs table
+  2. Thêm logAudit() function
+  3. Log CREATE/UPDATE/DELETE operations
+  4. Add GET /api/admin/audit-logs endpoint
+  5. Add UI để view audit logs
+
+PRIORITY 12: Add Pagination
+──────────────────────────────────────────
+Effort: 1-2 giờ
+Steps:
+  1. Update GET /api/students, /api/grades (add LIMIT/OFFSET)
+  2. Return meta: {total, page, pageSize, totalPages}
+  3. Update frontend: Implement pagination UI
+  4. Test: Load 10,000 records with pagination
+
+PRIORITY 13: Implement Automated Backups
+──────────────────────────────────────────
+Effort: 1-2 giờ
+Steps:
+  1. Tạo backup script (sqlite3 .backup)
+  2. Setup cron job (daily at 2 AM)
+  3. Upload to S3 / cloud storage
+  4. Retention policy: Keep 30 days
+
+PRIORITY 14: Add Email Notifications
+──────────────────────────────────────────
+Effort: 2-3 giờ
+Steps:
+  1. Setup email provider (SendGrid / AWS SES)
+  2. Tạo email templates
+  3. Send email when:
+     - Grade updated
+     - Certificate revoked
+     - New student registered
+  4. Test: Verify emails sent
+
+PRIORITY 15: Implement Teacher Dashboard
+──────────────────────────────────────────
+Effort: 2-3 giờ
+Steps:
+  1. Backend: Add /api/teacher/classes (list assigned classes)
+  2. Backend: Add /api/teacher/stats (class statistics)
+  3. Frontend: Tạo TeacherDashboard component
+  4. Features: View classes, upload grades, view statistics
+
+PRIORITY 16: Complete User Management
+──────────────────────────────────────────
+Effort: 2-3 giờ
+Steps:
+  1. Add change password endpoint
+  2. Add user edit profile endpoint
+  3. Add delete user endpoint (admin only)
+  4. Add user roles management
+  5. Add user activity log view (admin only)
+
+**Total Time: 14-16 giờ → Production-ready features**
+
+════════════════════════════════════════════════════════════════════════════════
+
+8.4. LONG-TERM IMPROVEMENTS (THÁNG 2+)
+
+• Multi-node Blockchain Consortium (2-3 tuần)
+  - Từng học viện là 1 node
+  - Implement consensus mechanism (PBFT/Raft)
+  - Decentralized verification
+
+• IPFS Integration (1-2 tuần)
+  - Store large files (PDF, images) on IPFS
+  - Reference via IPFS hash in blockchain
+  - Decentralized storage layer
+
+• Mobile App (4-6 tuần)
+  - React Native app
+  - Offline QR scanning
+  - Credential wallet
+
+• Data Encryption at Rest (1-2 tuần)
+  - Use SQLCipher for database encryption
+  - Encrypt sensitive fields
+  - Key management strategy
+
+• Compliance Features (2-3 tuần)
+  - GDPR data retention policies
+  - Automated data purging
+  - Student consent management
+  - Export data compliance
+
+════════════════════════════════════════════════════════════════════════════════
+
+8.5. TIMELINE & RESOURCE PLANNING
+
+IMMEDIATE (Ngày 1-2):
+  • Các CRITICAL issues: 4-5 giờ
+  • 1 Senior Dev + 1 Junior Dev
+  • Target: Production-safe
+
+SHORT-TERM (Tuần 1-2):
+  • Performance + Quality: 8-9 giờ
+  • 1-2 Developers
+  • Target: Better performance, better code
+
+MEDIUM-TERM (Tuần 3-4):
+  • Features + Compliance: 14-16 giờ
+  • 1-2 Developers (có thể parallel work)
+  • Target: Feature-complete, GDPR-ready
+
+LONG-TERM (Tháng 2+):
+  • Advanced Features: Scalable architecture
+  • 2-3 Developers
+  • Target: Production deployment
+
+════════════════════════════════════════════════════════════════════════════════
+
+================================================================================
+IX. KẾT LUẬN & KHUYẾN CÁO CUỐI CÙNG
+================================================================================
+
+TÌNH TRẠNG HIỆN TẠI:
+  ✓ Foundation tốt: Kiến trúc phù hợp, cryptography đúng
+  ✓ Core functionality hoàn thiện: Verification logic comprehensive
+  ✗ Security issues quan trọng: Hardcoded secrets, plaintext passwords
+  ✗ Performance issues: N+1 queries, no indexes
+  ✗ Production-readiness: Thiếu audit, không có backups
+
+RISK LEVEL: 🔴 CRITICAL
+→ KHÔNG NÊN DEPLOY KHI CHƯA FIX CÁC CRITICAL ISSUES
+
+FIX PRIORITY:
+  1️⃣ Security (VẤN ĐỀ #1-4): 4-5 giờ → BẮCC BUỘC
+  2️⃣ Performance (VẤN ĐỀ #5-7): 3-4 giờ → VERY IMPORTANT
+  3️⃣ Quality (VẤN ĐỀ #8-10): 2-3 giờ → IMPORTANT
+  4️⃣ Features (VẤN ĐỀ #11+): 8-10 giờ → NICE TO HAVE
+
+ESTIMATED EFFORT TO PRODUCTION: 2-3 TUẦN
+  Week 1: Fix security + performance critical issues
+  Week 2: Consolidate code, add error handling
+  Week 3: Add features, testing, staging deployment
+
+TEAM RECOMMENDATION:
+  • 2-3 developers (1 senior, 1-2 junior)
+  • 1 QA engineer
+  • Start ngay nếu muốn deploy trong 3 tuần
+
+════════════════════════════════════════════════════════════════════════════════
+END OF REPORT
+Generated: April 23, 2026
+Project: Security Academy Blockchain Ledger
+Status: CRITICAL ISSUES IDENTIFIED - IMMEDIATE ACTION REQUIRED
+════════════════════════════════════════════════════════════════════════════════
