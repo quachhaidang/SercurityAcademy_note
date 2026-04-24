@@ -193,7 +193,8 @@ export default function BlockchainExplorer() {
                     </span>
                   </motion.div>
               ))}
-            </AnimatePresence>
+              </AnimatePresence>
+            )}
           </div>
         </div>
       </div>
