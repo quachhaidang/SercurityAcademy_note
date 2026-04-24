@@ -681,13 +681,14 @@ function GradeTab({ grades, students, catClasses, catSubjects, catAcademicYears 
         const ten = nameParts.length > 0 ? nameParts[nameParts.length - 1] : '';
         const hoDem = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : '';
 
+        const fmt = (v) => (v != null && v !== '') ? parseFloat(v) : '';
         wsData.push([
           i + 1,
           s.student_id,
           hoDem,
           ten,
           s.date_of_birth || '',
-          g.tx1 || '', g.tx2 || '', g.tx3 || '', g.tx4 || '', g.gk || '', g.ck || '',
+          fmt(g.tx1), fmt(g.tx2), fmt(g.tx3), fmt(g.tx4), fmt(g.gk), fmt(g.ck),
           avg || (g.score ? parseFloat(g.score).toFixed(1) : ''),
           '', '', '', ''
         ]);
@@ -904,17 +905,24 @@ function GradeTab({ grades, students, catClasses, catSubjects, catAcademicYears 
         const studentId = getVal(1); // B: Mã học sinh
         if (!studentId) continue;
         
+        const parseScore = (c) => {
+          const v = getVal(c);
+          if (v == null || v === '') return null;
+          const n = parseFloat(v);
+          return isNaN(n) ? null : n;
+        };
+        
         payload.push({
           student_id: String(studentId).trim(),
           subject: excelSubject,
           semester: excelSemester,
           academic_year: excelYear,
-          tx1: getVal(5) || null,   // F: Tx1
-          tx2: getVal(6) || null,   // G: Tx2
-          tx3: getVal(7) || null,   // H: Tx3
-          tx4: getVal(8) || null,   // I: Tx4
-          gk: getVal(9) || null,    // J: GK (Giữa kỳ)
-          ck: getVal(10) || null,   // K: CK (Cuối kỳ)
+          tx1: parseScore(5),   // F: Tx1
+          tx2: parseScore(6),   // G: Tx2
+          tx3: parseScore(7),   // H: Tx3
+          tx4: parseScore(8),   // I: Tx4
+          gk: parseScore(9),    // J: GK (Giữa kỳ)
+          ck: parseScore(10),   // K: CK (Cuối kỳ)
         });
       }
 
