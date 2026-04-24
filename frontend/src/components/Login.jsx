@@ -137,9 +137,7 @@ export default function Login({ onLoginSuccess }) {
         </div>
 
         {/* Demo hint */}
-        <p className="text-center text-xs text-slate-400 mt-4">
-          Demo: <span className="font-semibold text-slate-500">admin</span> / <span className="font-semibold text-slate-500">admin123</span>
-        </p>
+
       </motion.div>
     </div>
   );
