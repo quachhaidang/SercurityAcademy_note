@@ -128,7 +128,7 @@ export default function BlockchainExplorer() {
                 <tr 
                   key={log.id} 
                   onClick={() => setSelectedBlock(log)}
-                  className="group hover:bg-white/[0.02] cursor-pointer transition-colors"
+                  className="group hover:bg-white/10 cursor-pointer transition-colors"
                 >
                   <td className="px-6 py-5">
                     <span className="text-sm font-mono text-brand-400">#{log.id}</span>

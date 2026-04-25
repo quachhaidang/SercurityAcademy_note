@@ -4,13 +4,32 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, BookOpen, Scroll, Plus, Trash2, FileUp, Download,
   ShieldCheck, CheckCircle2, XCircle, RefreshCw,
-  Loader2, Database, AlertCircle, Pencil, Ban
+  Loader2, Database, AlertCircle, Pencil, Ban, Folder
 } from 'lucide-react';
 import { showMessageBox } from './MessageBox';
 import * as XLSX from 'xlsx-js-style';
 import API_URL from '../config';
 
 const API = API_URL;
+
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  componentDidCatch(error, errorInfo) { console.error("Tab crash:", error, errorInfo); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 text-center bg-rose-50 rounded-2xl border border-rose-100 mt-4">
+          <AlertCircle size={40} className="mx-auto text-rose-500 mb-4" />
+          <h2 className="text-lg font-bold text-rose-700 mb-2">Đã xảy ra lỗi khi tải thẻ này</h2>
+          <p className="text-sm text-rose-600 mb-4">{this.state.error?.toString()}</p>
+          <button onClick={() => this.setState({ hasError: false })} className="btn-sm btn-primary bg-rose-600 hover:bg-rose-700 border-none">Thử lại</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export default function Dashboard({ userToken, userRole }) {
   const [tab, setTab] = useState('students');
@@ -42,14 +61,14 @@ export default function Dashboard({ userToken, userRole }) {
         axios.get(`${API}/api/majors`, { headers }),
         axios.get(`${API}/api/batches`, { headers }),
       ]);
-      if (resp[0].status === 'fulfilled') setStudents(resp[0].value.data);
+      if (resp[0].status === 'fulfilled') setStudents(Array.isArray(resp[0].value.data) ? resp[0].value.data : []);
       if (resp[1].status === 'fulfilled') setGrades(resp[1].value.data);
       if (resp[2].status === 'fulfilled') setCerts(resp[2].value.data);
-      if (resp[3].status === 'fulfilled') setCatClasses(resp[3].value.data.map(c => c.class_name));
-      if (resp[4].status === 'fulfilled') setCatSubjects(resp[4].value.data.map(s => s.subject_name));
-      if (resp[5].status === 'fulfilled') setCatAcademicYears(resp[5].value.data);
-      if (resp[6].status === 'fulfilled') setCatMajors(resp[6].value.data);
-      if (resp[7].status === 'fulfilled') setCatBatches(resp[7].value.data);
+      if (resp[3].status === 'fulfilled') setCatClasses(Array.isArray(resp[3].value.data) ? resp[3].value.data : []);
+      if (resp[4].status === 'fulfilled') setCatSubjects(Array.isArray(resp[4].value.data) ? resp[4].value.data.map(s => s.subject_name) : []);
+      if (resp[5].status === 'fulfilled') setCatAcademicYears(Array.isArray(resp[5].value.data) ? resp[5].value.data : []);
+      if (resp[6].status === 'fulfilled') setCatMajors(Array.isArray(resp[6].value.data) ? resp[6].value.data : []);
+      if (resp[7].status === 'fulfilled') setCatBatches(Array.isArray(resp[7].value.data) ? resp[7].value.data : []);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
@@ -99,10 +118,12 @@ export default function Dashboard({ userToken, userRole }) {
           <SkeletonTable key="skeleton" />
         ) : (
           <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
-            {tab === 'students' && <StudentTab students={students} catClasses={catClasses} catMajors={catMajors} catBatches={catBatches} headers={headers} refresh={fetchAll} />}
-            {tab === 'grades' && <GradeTab grades={grades} students={students} catClasses={catClasses} catSubjects={catSubjects} catAcademicYears={catAcademicYears} headers={headers} refresh={fetchAll} />}
-            {tab === 'certs' && <CertTab certs={certs} headers={headers} refresh={fetchAll} />}
-            {tab === 'catalog' && <CatalogTab headers={headers} refresh={fetchAll} academicYears={catAcademicYears} majors={catMajors} batches={catBatches} />}
+            <ErrorBoundary key={tab}>
+              {tab === 'students' && <StudentTab students={students} catClasses={catClasses} catMajors={catMajors} catBatches={catBatches} headers={headers} refresh={fetchAll} />}
+              {tab === 'grades' && <GradeTab grades={grades} students={students} catClasses={catClasses} catSubjects={catSubjects} catAcademicYears={catAcademicYears} catMajors={catMajors} headers={headers} refresh={fetchAll} />}
+              {tab === 'certs' && <CertTab certs={certs} headers={headers} refresh={fetchAll} />}
+              {tab === 'catalog' && <CatalogTab headers={headers} refresh={fetchAll} academicYears={catAcademicYears} majors={catMajors} batches={catBatches} />}
+            </ErrorBoundary>
           </motion.div>
         )}
       </AnimatePresence>
@@ -448,9 +469,7 @@ function StudentTab({ students, catClasses = [], catMajors = [], catBatches = []
             { key: 'student_id', label: 'MSSV', placeholder: 'SV-001' },
             { key: 'name', label: 'Họ tên', placeholder: 'Nguyễn Văn A' },
             { key: 'email', label: 'Email', placeholder: 'a@university.vn' },
-            { key: 'class_name', label: 'Lớp', type: 'select', options: catClasses.length > 0 ? catClasses : ['Không có lớp nào'] },
-            { key: 'major_id', label: 'Ngành học', type: 'select', options: catMajors.map(m => ({ label: m.major_name, value: m.id })) },
-            { key: 'batch_id', label: 'Khóa học', type: 'select', options: catBatches.map(b => ({ label: `${b.batch_name} (${b.start_year}-${b.end_year})`, value: b.id })) },
+            { key: 'class_name', label: 'Lớp', type: 'select', options: catClasses.length > 0 ? catClasses.map(c => ({ label: c.class_name, value: c.class_name })) : ['Không có lớp nào'] }
           ]} onSubmit={async (v) => {
              // Extract values since AddForm might return labels for select if not careful
              // But my AddForm uses values[f.key]
@@ -470,7 +489,7 @@ function StudentTab({ students, catClasses = [], catMajors = [], catBatches = []
                   <input type="checkbox" checked={allSelected} ref={el => { if (el) el.indeterminate = someSelected; }} onChange={toggleAll}
                     style={{ width: '1rem', height: '1rem', accentColor: '#4f46e5', cursor: 'pointer' }} />
                 </th>
-                {['Sinh viên', 'Email', 'Lớp', 'Trạng thái', 'Hành động'].map(h => (
+                {['Sinh viên', 'Email', 'Lớp', 'Khóa', 'Trạng thái', 'Hành động'].map(h => (
                   <th key={h} className="table-header-cell">{h}</th>
                 ))}
               </tr>
@@ -492,12 +511,13 @@ function StudentTab({ students, catClasses = [], catMajors = [], catBatches = []
                     <td className="table-body-cell">
                       {catClasses.length > 0 ? (
                         <select className="input" style={{ width: '7rem' }} value={editValues.cls} onChange={e => setEditValues(v => ({ ...v, cls: e.target.value }))}>
-                          {catClasses.map(c => <option key={c} value={c}>{c}</option>)}
+                          {catClasses.map(c => <option key={c.class_name} value={c.class_name}>{c.class_name}</option>)}
                         </select>
                       ) : (
                         <input className="input" style={{ width: '7rem' }} value={editValues.cls} onChange={e => setEditValues(v => ({ ...v, cls: e.target.value }))} placeholder="Lớp" />
                       )}
                     </td>
+                    <td className="table-body-cell" style={{ color: '#94a3b8', fontSize: '0.75rem', fontStyle: 'italic' }}>Tự động gán theo lớp</td>
                     <td className="table-body-cell" colSpan={2}>
                       <div style={{ display: 'flex', gap: '0.375rem' }}>
                         <button onClick={handleSave} disabled={saving} className="btn-sm btn-primary">{saving ? <Loader2 size={13} className="animate-spin" /> : <><CheckCircle2 size={13} />Lưu</>}</button>
@@ -519,6 +539,7 @@ function StudentTab({ students, catClasses = [], catMajors = [], catBatches = []
                     </td>
                     <td className="table-body-cell" style={{ color: '#64748b' }}>{s.email}</td>
                     <td className="table-body-cell"><span className="badge badge-blue">{s.class_name}</span></td>
+                    <td className="table-body-cell"><span className="badge" style={{ background: '#f1f5f9', color: '#475569' }}>{s.batch_name || 'Chưa có'}</span></td>
                     <td className="table-body-cell"><span className="badge badge-green"><CheckCircle2 size={10} />Đã xác thực</span></td>
                     <td className="table-body-cell">
                       <div style={{ display: 'flex', gap: '0.375rem' }}>
@@ -538,13 +559,19 @@ function StudentTab({ students, catClasses = [], catMajors = [], catBatches = []
 }
 
 /* ─────────────────────────────────────── GRADE TAB ── */
-function GradeTab({ grades, students, catClasses, catSubjects, catAcademicYears = [], headers, refresh }) {
+function GradeTab({ grades, students, catClasses, catSubjects, catAcademicYears = [], catMajors = [], headers, refresh }) {
   const classes = catClasses && catClasses.length > 0 ? catClasses : [];
   const subjects = catSubjects && catSubjects.length > 0 ? catSubjects : [];
+  const majors = catMajors || [];
 
   const semesters = ['Học kỳ 1', 'Học kỳ 2', 'Học kỳ 3', 'Học kỳ 4'];
-  const [selectedClass, setSelectedClass] = useState(classes[0] || '');
-  const [subject, setSubject] = useState(subjects[0] || '');
+  const [selectedMajor, setSelectedMajor] = useState('');
+  
+  // Lọc lớp theo ngành đã chọn
+  const filteredClasses = classes.filter(c => selectedMajor ? c.major_id === parseInt(selectedMajor) : true);
+  
+  const [selectedClass, setSelectedClass] = useState(filteredClasses[0]?.class_name || '');
+  const [subject, setSubject] = useState(subjects[0]?.subject_name || subjects[0] || '');
   const [semester, setSemester] = useState(semesters[0]);
   const [academicYear, setAcademicYear] = useState('');
   const [localGrades, setLocalGrades] = useState({});
@@ -557,6 +584,15 @@ function GradeTab({ grades, students, catClasses, catSubjects, catAcademicYears 
       setAcademicYear(academicYears[0].year_name);
     }
   }, [academicYears]);
+
+  useEffect(() => {
+    // When major changes, reset selected class to the first available class in that major
+    if (filteredClasses.length > 0 && !filteredClasses.find(c => c.class_name === selectedClass)) {
+      setSelectedClass(filteredClasses[0].class_name);
+    } else if (filteredClasses.length === 0) {
+      setSelectedClass('');
+    }
+  }, [selectedMajor, classes]);
 
   useEffect(() => {
     setLocalGrades({});
@@ -885,7 +921,7 @@ function GradeTab({ grades, students, catClasses, catSubjects, catAcademicYears 
         const hkMatch = b3Val.match(/HỌC KỲ\s+(\d+)/i);
         const namMatch = b3Val.match(/NĂM HỌC\s+(.+)$/i);
         if (monMatch) excelSubject = monMatch[1].trim();
-        if (hkMatch) excelSemester = `Học kỳ ${hkMatch[1]}`;
+        if (hkMatch) excelSemester = `Học kỳ ${hkMatch[1].trim()}`;
         if (namMatch) excelYear = namMatch[1].trim();
       }
 
@@ -902,7 +938,7 @@ function GradeTab({ grades, students, catClasses, catSubjects, catAcademicYears 
           return cell ? cell.v : null;
         };
         
-        const studentId = getVal(1); // B: Mã học sinh
+        const studentId = getVal(1) ? String(getVal(1)).trim() : null; // B: Mã học sinh
         if (!studentId) continue;
         
         const parseScore = (c) => {
@@ -943,9 +979,17 @@ function GradeTab({ grades, students, catClasses, catSubjects, catAcademicYears 
       {/* Thanh công cụ / Khung Filter */}
       <div style={{ padding: '0.75rem 1rem', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', fontSize: '0.85rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{ fontWeight: 600, color: '#334155' }}>Ngành:</span>
+          <select className="input" style={{ width: '10rem', padding: '0.2rem 0.5rem', height: '2rem' }} value={selectedMajor} onChange={e => setSelectedMajor(e.target.value)}>
+            <option value="">-- Tất cả ngành --</option>
+            {majors.map(m => <option key={m.id} value={m.id}>{m.major_name}</option>)}
+          </select>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <span style={{ fontWeight: 600, color: '#334155' }}>Lớp:</span>
-          <select className="input" style={{ width: '6rem', padding: '0.2rem 0.5rem', height: '2rem' }} value={selectedClass} onChange={e => setSelectedClass(e.target.value)}>
-            {classes.map(c => <option key={c} value={c}>{c}</option>)}
+          <select className="input" style={{ width: '8rem', padding: '0.2rem 0.5rem', height: '2rem' }} value={selectedClass} onChange={e => setSelectedClass(e.target.value)}>
+            {filteredClasses.map(c => <option key={c.id} value={c.class_name}>{c.class_name}</option>)}
+            {filteredClasses.length === 0 && <option value="">Không có lớp</option>}
           </select>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -964,7 +1008,7 @@ function GradeTab({ grades, students, catClasses, catSubjects, catAcademicYears 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <span style={{ fontWeight: 600, color: '#334155' }}>Môn:</span>
           <select className="input" style={{ width: '8rem', padding: '0.2rem 0.5rem', height: '2rem' }} value={subject} onChange={e => setSubject(e.target.value)}>
-            {subjects.map(s => <option key={s} value={s}>{s}</option>)}
+            {subjects.map(s => <option key={s.id || s} value={s.subject_name || s}>{s.subject_name || s}</option>)}
           </select>
         </div>
 
@@ -1222,13 +1266,13 @@ function CatalogTab({ headers, refresh, academicYears = [], majors = [], batches
   const [subjects, setSubjects] = useState([]);
 
   useEffect(() => {
-    axios.get(`${API}/api/classes`, { headers }).then(res => setClasses(res.data)).catch(() => { });
-    axios.get(`${API}/api/subjects`, { headers }).then(res => setSubjects(res.data)).catch(() => { });
+    axios.get(`${API}/api/classes`, { headers }).then(res => setClasses(Array.isArray(res.data) ? res.data : [])).catch(() => { });
+    axios.get(`${API}/api/subjects`, { headers }).then(res => setSubjects(Array.isArray(res.data) ? res.data : [])).catch(() => { });
   }, [refresh]);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-      <CatalogPanel title="Quản lý Lớp" endpoint="/api/classes" data={classes} field="class_name" headers={headers} refresh={refresh} icon={<Users size={20} />} color="blue" />
+      <ClassCatalogPanel classes={classes} majors={majors} batches={batches} headers={headers} refresh={refresh} />
       <CatalogPanel title="Quản lý Môn" endpoint="/api/subjects" data={subjects} field="subject_name" headers={headers} refresh={refresh} icon={<BookOpen size={20} />} color="indigo" />
       <CatalogPanel title="Năm học" endpoint="/api/academic-years" data={academicYears} field="year_name" headers={headers} refresh={refresh} icon={<Database size={20} />} color="emerald" />
       <CatalogPanel title="Ngành học" endpoint="/api/majors" data={majors} field="major_name" headers={headers} refresh={refresh} icon={<Database size={20} />} color="violet" />
@@ -1342,6 +1386,97 @@ function AccountPanel({ headers }) {
           <AlertCircle size={14} className="text-rose-500 mt-0.5 flex-shrink-0" />
           <p className="text-xs text-slate-500 leading-relaxed font-medium">Tài khoản này chỉ có quyền thao tác với điểm và chứng chỉ, không có quyền xóa hay truy cập cài đặt.</p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ClassCatalogPanel({ classes, majors, batches, headers, refresh }) {
+  const [val, setVal] = useState('');
+  const [selectedMajorId, setSelectedMajorId] = useState('');
+  const [selectedBatchId, setSelectedBatchId] = useState('');
+
+  const handleAdd = async () => {
+    if (!val.trim()) return;
+    try {
+      await axios.post(`${API}/api/classes`, { class_name: val, major_id: selectedMajorId || null, batch_id: selectedBatchId || null }, { headers });
+      setVal(''); refresh();
+    } catch (e) { await showMessageBox({ type: 'alert', title: 'Lỗi', desc: e.response?.data?.error || 'Lớp đã tồn tại' }); }
+  };
+
+  const handleDelete = async (id) => {
+    const ok = await showMessageBox({ type: 'confirm', title: 'Xóa lớp', desc: 'Xác nhận xóa lớp này?' });
+    if (ok) {
+      try { await axios.delete(`${API}/api/classes/${id}`, { headers }); refresh(); }
+      catch (e) { await showMessageBox({ type: 'alert', title: 'Lỗi', desc: e.response?.data?.error || 'Lỗi xóa' }); }
+    }
+  };
+
+  const handleEdit = async (id, oldVal, oldMajorId, oldBatchId) => {
+    const newVal = await showMessageBox({ type: 'prompt', title: 'Cập nhật tên lớp', desc: 'Tên mới:', defaultValue: oldVal });
+    if (newVal) {
+      try { await axios.put(`${API}/api/classes/${id}`, { class_name: newVal, major_id: oldMajorId, batch_id: oldBatchId }, { headers }); refresh(); }
+      catch (e) { await showMessageBox({ type: 'alert', title: 'Lỗi', desc: 'Lỗi cập nhật' }); }
+    }
+  };
+
+  // Group classes by major
+  const grouped = (Array.isArray(classes) ? classes : []).reduce((acc, c) => {
+    const key = c.major_name || 'Chưa gán ngành';
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(c);
+    return acc;
+  }, {});
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100/80 shadow-[0_4px_24px_-8px_rgba(0,0,0,0.05)] flex flex-col p-6 h-full transition-shadow hover:shadow-[0_8px_30px_-8px_rgba(0,0,0,0.08)]">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm bg-blue-50 text-blue-600">
+          <Users size={20} />
+        </div>
+        <h3 className="font-bold text-slate-800 text-lg tracking-tight">Quản lý Lớp</h3>
+      </div>
+      
+      <div className="flex flex-col gap-2 mb-6">
+        <div className="flex gap-2">
+          <select className="input h-11 flex-1 bg-slate-50 focus:bg-white transition-colors" value={selectedMajorId} onChange={e => setSelectedMajorId(e.target.value)}>
+            <option value="">-- Chọn ngành (Tùy chọn) --</option>
+            {majors.map(m => <option key={m.id} value={m.id}>{m.major_name}</option>)}
+          </select>
+          <select className="input h-11 w-32 bg-slate-50 focus:bg-white transition-colors" value={selectedBatchId} onChange={e => setSelectedBatchId(e.target.value)}>
+            <option value="">-- Khóa --</option>
+            {batches.map(b => <option key={b.id} value={b.id}>{b.batch_name}</option>)}
+          </select>
+        </div>
+        <div className="flex gap-2">
+          <input className="input h-11 flex-1 bg-slate-50 focus:bg-white transition-colors" value={val} onChange={e => setVal(e.target.value)} placeholder="Nhập tên lớp..." onKeyDown={e => e.key === 'Enter' && handleAdd()} />
+          <button onClick={handleAdd} className="btn-md h-11 bg-slate-900 hover:bg-slate-800 text-white shadow-md border-none px-5">
+            <Plus size={15} />
+          </button>
+        </div>
+      </div>
+      
+      <div className="flex-1 overflow-y-auto pr-2 space-y-4 scrollbar-thin" style={{ maxHeight: '14rem' }}>
+        {Object.entries(grouped).map(([majorName, clsList]) => (
+          <div key={majorName} className="flex flex-col gap-1">
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+              <Folder size={12} /> {majorName}
+            </div>
+            {clsList.map(item => (
+              <div key={item.id} className="group flex items-center justify-between p-2.5 rounded-xl border border-transparent hover:border-slate-200 hover:bg-slate-50 transition-all duration-200 ml-2">
+                <div>
+                  <span className="font-bold text-slate-700 text-sm">{item.class_name}</span>
+                  {item.batch_name && <span className="ml-2 text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-md font-bold uppercase">{item.batch_name}</span>}
+                </div>
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => handleEdit(item.id, item.class_name, item.major_id, item.batch_id)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-white rounded transition-all"><Pencil size={12} /></button>
+                  <button onClick={() => handleDelete(item.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-white rounded transition-all"><Trash2 size={12} /></button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
+        {classes.length === 0 && <div className="text-slate-400 text-sm italic text-center py-4">Chưa có dữ liệu</div>}
       </div>
     </div>
   );

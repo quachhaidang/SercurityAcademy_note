@@ -140,7 +140,7 @@ app.post('/api/public/verify', async (req, res) => {
         issuerMetadata: {
             name: "Security Academy",
             publicKey: KeyService.getPublicKey().substring(0, 64) + '...',
-            website: "https://security.academy",
+            website: "https://sercurity-academy-note.vercel.app ",
             country: "Vietnam"
         },
         trueData: {
@@ -275,8 +275,19 @@ app.get('/api/students', authenticate, async (req, res) => {
 });
 
 app.post('/api/students', authenticate, requireAdmin, async (req, res) => {
-    const { student_id, name, email, class_name, major_id, batch_id } = req.body;
+    const { student_id, name, email, class_name } = req.body; // Remove batch_id from req.body since it's auto-assigned
     try {
+        // Auto-assign major_id and batch_id based on class_name
+        let major_id = null;
+        let batch_id = null;
+        if (class_name) {
+            const cls = await db.get('SELECT major_id, batch_id FROM classes WHERE class_name = ?', [class_name]);
+            if (cls) {
+                major_id = cls.major_id || null;
+                batch_id = cls.batch_id || null;
+            }
+        }
+
         await db.run('INSERT INTO students (student_id, name, email, class_name, major_id, batch_id) VALUES (?, ?, ?, ?, ?, ?)', 
             [student_id, name, email, class_name, major_id, batch_id]);
         res.json({ message: "Student added" });
@@ -296,8 +307,19 @@ app.post('/api/students/bulk', authenticate, requireAdmin, async (req, res) => {
     try {
         for (const s of students) {
             try {
-                await db.run('INSERT INTO students (student_id, name, email, class_name) VALUES (?, ?, ?, ?)', 
-                    [s.student_id, s.name, s.email, s.class_name]);
+                // Auto-assign major_id and batch_id for bulk import too
+                let major_id = null;
+                let batch_id = null;
+                if (s.class_name) {
+                    const cls = await db.get('SELECT major_id, batch_id FROM classes WHERE class_name = ?', [s.class_name]);
+                    if (cls) {
+                        major_id = cls.major_id || null;
+                        batch_id = cls.batch_id || null;
+                    }
+                }
+
+                await db.run('INSERT INTO students (student_id, name, email, class_name, major_id, batch_id) VALUES (?, ?, ?, ?, ?, ?)', 
+                    [s.student_id, s.name, s.email, s.class_name, major_id, batch_id]);
                 importedStudents.push(s);
             } catch (err) {
                 errors.push(`ID ${s.student_id} đã tồn tại hoặc không hợp lệ.`);
@@ -333,9 +355,20 @@ app.put('/api/students/:id', authenticate, requireAdmin, async (req, res) => {
     const { id } = req.params;
     const { name, email, class_name } = req.body;
     try {
+        // Auto-assign major_id and batch_id based on class_name
+        let major_id = null;
+        let batch_id = null;
+        if (class_name) {
+            const cls = await db.get('SELECT major_id, batch_id FROM classes WHERE class_name = ?', [class_name]);
+            if (cls) {
+                major_id = cls.major_id || null;
+                batch_id = cls.batch_id || null;
+            }
+        }
+
         const result = await db.run(
-            'UPDATE students SET name = ?, email = ?, class_name = ? WHERE student_id = ?',
-            [name, email, class_name, id]
+            'UPDATE students SET name = ?, email = ?, class_name = ?, major_id = ?, batch_id = ? WHERE student_id = ?',
+            [name, email, class_name, major_id, batch_id, id]
         );
         if (result.changes === 0) return res.status(404).json({ error: 'Sinh viên không tồn tại.' });
         res.json({ message: 'Cập nhật thành công.' });
@@ -501,14 +534,20 @@ app.delete('/api/certificates/:id', authenticate, requireAdmin, async (req, res)
 // API: CLASSES & SUBJECTS (Admin Catalog)
 // =======================
 app.get('/api/classes', authenticate, async (req, res) => {
-    const classes = await db.all('SELECT * FROM classes');
+    // Return classes with their major and batch details
+    const classes = await db.all(`
+        SELECT c.*, m.major_name, b.batch_name 
+        FROM classes c 
+        LEFT JOIN majors m ON c.major_id = m.id
+        LEFT JOIN batches b ON c.batch_id = b.id
+    `);
     res.json(classes);
 });
 
 app.post('/api/classes', authenticate, requireAdmin, async (req, res) => {
-    const { class_name } = req.body;
+    const { class_name, major_id, batch_id } = req.body;
     try {
-        await db.run('INSERT INTO classes (class_name) VALUES (?)', [class_name]);
+        await db.run('INSERT INTO classes (class_name, major_id, batch_id) VALUES (?, ?, ?)', [class_name, major_id || null, batch_id || null]);
         res.json({ message: "Đã thêm lớp" });
     } catch {
         res.status(400).json({ error: "Lớp học đã tồn tại" });
@@ -516,9 +555,10 @@ app.post('/api/classes', authenticate, requireAdmin, async (req, res) => {
 });
 
 app.put('/api/classes/:id', authenticate, requireAdmin, async (req, res) => {
-    const { class_name } = req.body;
+    const { class_name, major_id, batch_id } = req.body;
     try {
-        await db.run('UPDATE classes SET class_name = ? WHERE id = ?', [class_name, req.params.id]);
+        await db.run('UPDATE classes SET class_name = ?, major_id = ?, batch_id = ? WHERE id = ?', 
+            [class_name, major_id !== undefined ? major_id : null, batch_id !== undefined ? batch_id : null, req.params.id]);
         res.json({ message: "Đã cập nhật lớp" });
     } catch {
         res.status(400).json({ error: "Lỗi cập nhật hoặc tên trùng lặp" });

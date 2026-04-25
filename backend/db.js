@@ -78,7 +78,9 @@ async function initDb() {
 
         CREATE TABLE IF NOT EXISTS classes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            class_name TEXT UNIQUE
+            class_name TEXT UNIQUE,
+            major_id INTEGER REFERENCES majors(id),
+            batch_id INTEGER REFERENCES batches(id)
         );
 
         CREATE TABLE IF NOT EXISTS subjects (
@@ -113,6 +115,8 @@ async function initDb() {
     try { await db.exec("ALTER TABLE certificates ADD COLUMN signature TEXT"); } catch (e) {}
     try { await db.exec("ALTER TABLE students ADD COLUMN major_id INTEGER"); } catch (e) {}
     try { await db.exec("ALTER TABLE students ADD COLUMN batch_id INTEGER"); } catch (e) {}
+    // Link classes to majors
+    try { await db.exec("ALTER TABLE classes ADD COLUMN major_id INTEGER"); } catch (e) {}
 
 
     // Default Admin
