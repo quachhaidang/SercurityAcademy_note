@@ -2,3 +2,14 @@ node_modules/
 backend/node_modules/
 frontend/node_modules/
 .env
+
+# Database files
+*.sqlite
+*.db
+
+# Key files (sensitive)
+*.pem
+
+# OS files
+.DS_Store
+Thumbs.db
