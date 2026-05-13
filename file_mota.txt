@@ -1,0 +1,67 @@
+Dự án "blockchain node" là một hệ thống quản lý hồ sơ sinh viên được thiết kế đặc biệt để bảo đảm tính toàn vẹn và độ tin cậy của dữ liệu. Dựa trên kiến trúc hai tầng, hệ thống gồm backend xử lý dữ liệu và blockchain nội bộ, cùng frontend tạo giao diện người dùng thân thiện.
+
+1. Giới thiệu dự án
+Dự án kết hợp giữa Node.js và React để xây dựng một nền tảng quản lý điểm số, chứng chỉ và hồ sơ sinh viên. Thông tin quan trọng được lưu trong cơ sở dữ liệu SQLite, đồng thời hàm băm và chữ ký số được sử dụng để xác thực và tránh việc giả mạo.
+
+2. Kiến trúc hệ thống
+- backend/: chứa mã nguồn server, dịch vụ blockchain và các script hỗ trợ.
+- frontend/: chứa giao diện web React cho người dùng và quản trị.
+
+3. Backend dùng những gì
+- Node.js + Express: xây dựng API phục vụ các yêu cầu từ frontend.
+- cors: cho phép giao tiếp giữa frontend và backend trong môi trường phát triển.
+- dotenv: quản lý biến môi trường, giữ an toàn cho khóa và cấu hình.
+- jsonwebtoken: xác thực đăng nhập, cấp quyền cho người dùng.
+- sqlite, sqlite3: lưu trữ dữ liệu sinh viên, bảng điểm, chứng chỉ và trạng thái blockchain.
+- crypto-js: tạo hash và xử lý mã hóa để bảo vệ dữ liệu.
+
+4. Các thành phần backend chính
+- server.js: điều phối API, xác thực JWT, xử lý tra cứu, xác minh và thu hồi hồ sơ.
+- BlockchainService.js: mô phỏng blockchain nội bộ, ghi lại hash và truy vấn trạng thái.
+- HashService.js: tạo và kiểm tra hash để đối chiếu dữ liệu.
+- KeyService.js: quản lý cặp khóa RSA và xác minh chữ ký số.
+- db.js: thiết lập kết nối và thao tác cơ sở dữ liệu SQLite.
+- normalize_db.js, reset_db.js, resync_blockchain.js, check_db.js: các công cụ hỗ trợ bảo trì dữ liệu và đồng bộ blockchain.
+- private.pem / public.pem: khóa riêng và khóa công khai dùng xác thực chữ ký số.
+
+5. Frontend dùng những gì
+- React 19: xây dựng giao diện người dùng theo kiểu SPA.
+- Vite: khởi tạo ứng dụng nhanh, biên dịch và chạy frontend.
+- Tailwind CSS: thiết kế giao diện sạch, dễ đọc và responsive.
+- axios: gửi yêu cầu đến API backend.
+- react-router-dom: điều hướng giữa các màn hình nội bộ.
+- framer-motion: thêm hiệu ứng chuyển động cho trải nghiệm mượt mà.
+- lucide-react: icon minh họa cho giao diện.
+- qrcode.react: tạo mã QR cho hồ sơ hoặc chứng thực.
+- html2pdf.js, jspdf, jspdf-autotable: xuất nội dung thành file PDF.
+- xlsx, xlsx-js-style: xuất và nhập bảng tính Excel.
+
+6. Các phần quan trọng ở frontend
+- src/App.jsx: quản lý luồng ứng dụng, phân chia tab và trạng thái đăng nhập.
+- src/components/: chứa các thành phần chính:
+  - BlockchainExplorer.jsx: xem lịch sử giao dịch và trạng thái blockchain.
+  - Dashboard.jsx: trang quản trị để quản lý dữ liệu.
+  - GradeTable.jsx: hiển thị chi tiết điểm của sinh viên.
+  - Login.jsx: màn hình đăng nhập cho giáo viên và quản trị viên.
+  - Lookup.jsx: tra cứu sinh viên theo mã và xem hồ sơ.
+  - MessageBox.jsx: thông báo trạng thái và lỗi.
+  - Navbar.jsx, Sidebar.jsx, TopNav.jsx: điều hướng giao diện cho người dùng.
+  - Verifier.jsx: kiểm tra chữ ký số và trạng thái bản ghi.
+- src/index.css: chứa các thiết lập theme và style chung cho toàn bộ ứng dụng.
+- src/config.js: cấu hình endpoint API và các tham số kết nối.
+
+7. Cách chạy dự án
+- package.json gốc: dùng concurrently để chạy song song backend và frontend.
+- "npm run install:all": cài đặt toàn bộ phụ thuộc cho cả hai phần.
+- "npm run dev": khởi chạy đồng thời backend và frontend để chạy thử.
+
+8. Những tính năng nổi bật
+- Tra cứu hồ sơ sinh viên một cách nhanh chóng bằng mã sinh viên.
+- Xác thực tính toàn vẹn dữ liệu bằng hash blockchain và chữ ký số.
+- Kiểm tra xem một bản ghi có bị thu hồi (revoke) hay không.
+- Quản lý và thu hồi hồ sơ bởi người dùng có quyền admin.
+- Xuất báo cáo PDF và Excel trực tiếp từ giao diện.
+- Giao diện responsive, phù hợp với cả máy tính và thiết bị di động.
+
+9. Ý nghĩa và lợi ích
+Hệ thống giúp tăng cường an toàn cho dữ liệu học thuật, giảm thiểu rủi ro giả mạo điểm và chứng chỉ. Khi sử dụng blockchain nội bộ, mỗi bản ghi được ghi lại và có thể kiểm tra lại, tạo nền tảng tin cậy cho quản lý hồ sơ sinh viên.

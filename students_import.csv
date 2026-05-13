@@ -1,0 +1,11 @@
+student_id,name,email,class_name
+SV001,Nguyễn Văn An,an.nguyen@example.com,CNTT
+SV002,Trần Thị Bình,binh.tran@example.com,CNTT
+SV003,Lê Văn Cường,cuong.le@example.com,CNTT
+SV004,Phạm Thị Dung,dung.pham@example.com,CNTT
+SV005,Nguyễn Minh Đức,duc.nguyen@example.com,CNTT
+SV006,Hoàng Thị Giang,giang.hoang@example.com,KTMT
+SV007,Nguyễn Thị Hà,ha.nguyen@example.com,KTMT
+SV008,Trần Văn Hùng,hung.tran@example.com,KTMT
+SV009,Lê Thị Kiều,kieu.le@example.com,KTMT
+SV010,Phan Minh Long,long.phan@example.com,KTMT

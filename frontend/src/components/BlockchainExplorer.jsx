@@ -35,7 +35,6 @@ export default function BlockchainExplorer() {
   const filteredLogs = data?.logs?.filter(l => {
     const matchesFilter = filter === 'active' ? l.status === 'Active' : (filter === 'revoked' ? l.status === 'Revoked' : true);
     const matchesSearch = searchQuery === '' || 
-                          l.data_hash?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           l.student_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           l.student_name?.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesFilter && matchesSearch;
@@ -65,7 +64,7 @@ export default function BlockchainExplorer() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-brand-400 transition-colors" size={16} />
                 <input 
                   type="text" 
-                  placeholder="Tìm hash, MSSV..."
+                  placeholder="Tìm MSSV..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="bg-slate-900/50 border border-slate-800 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:border-brand-500/50 focus:ring-4 focus:ring-brand-500/5 transition-all w-full md:w-64"
@@ -114,52 +113,43 @@ export default function BlockchainExplorer() {
             <thead>
               <tr className="bg-slate-900/50 text-[10px] uppercase font-black tracking-[0.15em] text-slate-500 border-b border-slate-800">
                 <th className="px-6 py-4">Block</th>
-                <th className="px-6 py-4">Hash ID</th>
-                <th className="px-6 py-4">Record Name</th>
-                <th className="px-6 py-4">Owner</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 text-right">Age</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/50">
-              {loading ? (
-                <tr><td colSpan={6} className="py-20 text-center"><Loader2 size={32} className="animate-spin mx-auto text-brand-500" /></td></tr>
-              ) : filteredLogs.map((log, idx) => (
-                <tr 
-                  key={log.id} 
-                  onClick={() => setSelectedBlock(log)}
-                  className="group hover:bg-white/[0.02] cursor-pointer transition-colors"
-                >
-                  <td className="px-6 py-5">
-                    <span className="text-sm font-mono text-brand-400">#{log.id}</span>
-                  </td>
-                  <td className="px-6 py-5">
-                    <div className="flex items-center gap-2">
-                      <Fingerprint size={14} className="text-slate-600" />
-                      <code className="text-[11px] text-slate-400 group-hover:text-brand-300 transition-colors">
-                        {log.data_hash?.substring(0, 8)}...{log.data_hash?.substring(log.data_hash.length - 8)}
-                      </code>
-                    </div>
-                  </td>
-                  <td className="px-6 py-5">
-                    <div className="flex items-center gap-2">
-                       <div className={`w-1.5 h-1.5 rounded-full ${log.record_type === 'Grade' ? 'bg-indigo-500' : 'bg-pink-500'}`} />
-                       <span className="text-sm font-bold text-slate-200">{log.record_name || 'System Record'}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-5">
-                    <span className="text-xs text-slate-500">{log.student_name || 'N/A'}</span>
-                  </td>
-                  <td className="px-6 py-5">
-                    <StatusBadge status={log.status} />
-                  </td>
-                  <td className="px-6 py-5 text-right">
-                    <span className="text-[11px] text-slate-600 font-medium">
-                      {formatTime(log.timestamp)}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+                 <th className="px-6 py-4">Record Name</th>
+                 <th className="px-6 py-4">Owner</th>
+                 <th className="px-6 py-4">Status</th>
+                 <th className="px-6 py-4 text-right">Age</th>
+               </tr>
+             </thead>
+             <tbody className="divide-y divide-slate-800/50">
+               {loading ? (
+                 <tr><td colSpan={5} className="py-20 text-center"><Loader2 size={32} className="animate-spin mx-auto text-brand-500" /></td></tr>
+               ) : filteredLogs.map((log, idx) => (
+                 <tr 
+                   key={log.id} 
+                   onClick={() => setSelectedBlock(log)}
+                   className="group hover:bg-white/10 cursor-pointer transition-colors"
+                 >
+                   <td className="px-6 py-5">
+                     <span className="text-sm font-mono text-brand-400">#{log.id}</span>
+                   </td>
+                   <td className="px-6 py-5">
+                     <div className="flex items-center gap-2">
+                        <div className={`w-1.5 h-1.5 rounded-full ${log.record_type === 'Grade' ? 'bg-indigo-500' : 'bg-pink-500'}`} />
+                        <span className="text-sm font-bold text-slate-200">{log.record_name || 'System Record'}</span>
+                     </div>
+                   </td>
+                   <td className="px-6 py-5">
+                     <span className="text-xs text-slate-500">{log.student_name || 'N/A'}</span>
+                   </td>
+                   <td className="px-6 py-5">
+                     <StatusBadge status={log.status} />
+                   </td>
+                   <td className="px-6 py-5 text-right">
+                     <span className="text-[11px] text-slate-600 font-medium">
+                       {formatTime(log.timestamp)}
+                     </span>
+                   </td>
+                 </tr>
+               ))}
             </tbody>
           </table>
         </div>
@@ -187,10 +177,6 @@ export default function BlockchainExplorer() {
                 <StatusBadge status={log.status} />
               </div>
               <div className="space-y-3">
-                <div className="flex justify-between text-[11px]">
-                  <span className="text-slate-500">Hash ID</span>
-                  <code className="text-brand-300">{log.data_hash?.substring(0, 10)}...</code>
-                </div>
                 <div className="flex justify-between text-[11px]">
                   <span className="text-slate-500">Owner</span>
                   <span className="text-slate-300">{log.student_name || 'N/A'}</span>
@@ -230,7 +216,6 @@ export default function BlockchainExplorer() {
                 </div>
                 
                 <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
-                  <DetailItem label="Transaction Hash" value={selectedBlock.data_hash} isCopyable />
                   <div className="grid grid-cols-2 gap-6">
                     <DetailItem label="Loại bản ghi" value={selectedBlock.record_type} />
                     <DetailItem label="Trạng thái" value={selectedBlock.status} isStatus />
@@ -239,12 +224,6 @@ export default function BlockchainExplorer() {
                   <DetailItem label="Nội dung" value={selectedBlock.record_name} />
                   <DetailItem label="Thời gian ký" value={new Date(selectedBlock.timestamp).toLocaleString('vi-VN')} />
                   
-                  <div className="pt-4">
-                    <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3">Blockchain Metadata</p>
-                    <div className="bg-black/40 rounded-2xl p-4 border border-slate-800 font-mono text-[11px] text-emerald-500/80 leading-relaxed whitespace-pre-wrap break-all">
-                      {JSON.stringify(selectedBlock, null, 2)}
-                    </div>
-                  </div>
                 </div>
                 
                 <div className="p-6 bg-slate-900/50 border-t border-slate-800 flex justify-end">

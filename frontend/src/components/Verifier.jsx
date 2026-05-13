@@ -117,7 +117,8 @@ export default function Verifier() {
 
           const localAvg = calculateLocalAvg(g.scores);
           const sem = g.semester || '';
-          const localDataString = `${json.student?.student_id}-${g.subject}-${sem}-${f(g.scores.tx1)}-${f(g.scores.tx2)}-${f(g.scores.tx3)}-${f(g.scores.tx4)}-${f(g.scores.tx5)}-${f(g.scores.gk)}-${f(g.scores.ck)}-${localAvg}`;
+          const year = g.academic_year || '';
+          const localDataString = `${json.student?.student_id}-${g.subject}-${year}-${sem}-${f(g.scores.tx1)}-${f(g.scores.tx2)}-${f(g.scores.tx3)}-${f(g.scores.tx4)}-${f(g.scores.tx5)}-${f(g.scores.gk)}-${f(g.scores.ck)}-${localAvg}`;
 
           if (localDataString !== dataString) {
             return { subject: g.subject, scores: g.scores, authenticityValid: true, integrityValid: false, isTampered: true };

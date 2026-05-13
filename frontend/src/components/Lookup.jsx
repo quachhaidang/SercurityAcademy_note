@@ -207,7 +207,7 @@ export default function Lookup() {
           return { subject: g.subject, scores: g.scores, authenticityValid: false, integrityValid: false, error: 'Thiếu dữ liệu xác minh' };
         }
         try {
-          const { data } = await axios.post('${API_URL}/api/public/verify', { dataString, signature, hash });
+          const { data } = await axios.post(`${API_URL}/api/public/verify`, { dataString, signature, hash });
           return { subject: g.subject, scores: g.scores, ...data };
         } catch {
           return { subject: g.subject, scores: g.scores, authenticityValid: false, integrityValid: false, error: 'Lỗi kết nối server' };
